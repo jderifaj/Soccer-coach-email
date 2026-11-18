@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Coach Outreach</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <h1 class="brand">Coach Outreach</h1>
+      <nav class="tabs" role="tablist" aria-label="Steps">
+        <button class="tab" id="tab-write" role="tab" aria-controls="panel-write"><span class="step">1</span> Write</button>
+        <button class="tab" id="tab-schools" role="tab" aria-controls="panel-schools"><span class="step">2</span> Schools</button>
+        <button class="tab" id="tab-send" role="tab" aria-controls="panel-send"><span class="step">3</span> Send <span class="badge" id="send-badge" hidden></span></button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- 1. WRITE ------------------------------------------------------- -->
+    <section id="panel-write" role="tabpanel" aria-labelledby="tab-write">
+      <div class="intro">
+        <h2>Write your email once</h2>
+        <p class="muted">Click a button below to drop in a placeholder like <b>[Coach]</b> or <b>[School]</b>. It's swapped for the right name for every school.</p>
+      </div>
+
+      <div class="write-grid">
+        <div class="compose">
+          <div class="field">
+            <label for="subject">Subject</label>
+            <input id="subject" type="text" autocomplete="off">
+          </div>
+
+          <div class="field">
+            <span class="field-label" id="body-label">Message</span>
+            <div class="editor-shell">
+              <div class="editor-toolbar" role="toolbar" aria-label="Formatting">
+                <button type="button" class="tool" id="fmt-bold" title="Bold (⌘B)" aria-label="Bold"><b>B</b></button>
+                <button type="button" class="tool" id="fmt-italic" title="Italic (⌘I)" aria-label="Italic"><i>I</i></button>
+                <button type="button" class="tool tool-wide" id="fmt-link" title="Select words, then click to add a link">Link</button>
+                <span class="tool-sep" aria-hidden="true"></span>
+                <span class="tool-label">Insert:</span>
+                <button type="button" class="token" data-token="[Coach]" title="Becomes “Coach Smith”">[Coach]</button>
+                <button type="button" class="token" data-token="[Last Name]" title="Becomes “Smith”">[Last Name]</button>
+                <button type="button" class="token" data-token="[First Name]" title="Becomes “Jane”">[First Name]</button>
+                <button type="button" class="token" data-token="[School]" title="Becomes the school name">[School]</button>
+              </div>
+              <form id="link-box" class="link-box" hidden novalidate>
+                <p class="link-for">Link for “<span id="link-words"></span>”</p>
+                <div class="link-row">
+                  <label for="link-url" class="visually-hidden">Web address</label>
+                  <input id="link-url" type="url" placeholder="Paste the web address, e.g. https://www.hudl.com/…" autocomplete="off">
+                  <button type="submit" class="btn btn-primary btn-small">Add link</button>
+                  <button type="button" class="btn btn-quiet btn-small" id="link-remove" hidden>Remove link</button>
+                  <button type="button" class="btn btn-quiet btn-small" id="link-cancel">Cancel</button>
+                </div>
+                <p class="error" id="link-error" hidden>That doesn't look like a web address.</p>
+              </form>
+              <div id="body" class="editor" contenteditable="true" role="textbox" aria-multiline="true"
+                   aria-labelledby="body-label" spellcheck="true"></div>
+            </div>
+            <p class="hint">To link words, select them and click <b>Link</b>. Pasting from Gmail or Google Docs keeps links, bold text and tables.</p>
+          </div>
+
+          <fieldset class="settings">
+            <legend>Who it comes from and who's copied</legend>
+            <div class="field">
+              <label for="gmail-account">Your Gmail address</label>
+              <input id="gmail-account" type="email" autocomplete="email" placeholder="you@gmail.com">
+              <p class="hint">Makes sure Gmail opens in your account if more than one is signed in.</p>
+              <p class="error" id="gmail-account-err" hidden>That doesn't look like an email address.</p>
+            </div>
+            <div class="field">
+              <label for="club-coach">Club coach email (CC'd on every email)</label>
+              <input id="club-coach" type="email" placeholder="coach@club.com">
+              <p class="error" id="club-coach-err" hidden>That doesn't look like an email address.</p>
+            </div>
+          </fieldset>
+        </div>
+
+        <aside class="preview-pane" aria-label="Preview">
+          <div class="label-row">
+            <h3 class="pane-title">Preview</h3>
+            <label class="inline-select"><span class="visually-hidden">Preview for</span>
+              <select id="preview-school"></select>
+            </label>
+          </div>
+          <div id="preview" class="preview"></div>
+        </aside>
+      </div>
+
+      <div class="next-row">
+        <button type="button" class="btn btn-primary" id="to-schools">Next: choose schools →</button>
+      </div>
+    </section>
+
+    <!-- 2. SCHOOLS ----------------------------------------------------- -->
+    <section id="panel-schools" role="tabpanel" aria-labelledby="tab-schools" hidden>
+      <div class="intro">
+        <h2>Pick the schools</h2>
+        <p class="muted">Tick each school that should get this email. Click Edit to fix a name or add assistant coaches to CC.</p>
+      </div>
+
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="Search schools or coaches" aria-label="Search schools or coaches">
+        <div class="toolbar-actions">
+          <button type="button" class="btn btn-quiet" id="select-all">Select all</button>
+          <button type="button" class="btn btn-quiet" id="select-none">Clear</button>
+          <button type="button" class="btn" id="add-school">Add school</button>
+          <label class="btn btn-quiet file-btn">Import CSV<input id="import-csv" type="file" accept=".csv,text/csv"></label>
+        </div>
+      </div>
+
+      <ul id="school-list" class="school-list"></ul>
+
+      <div class="next-row sticky-next">
+        <span id="selected-count" class="muted">None selected</span>
+        <button type="button" class="btn btn-primary" id="to-send">Next: review &amp; send →</button>
+      </div>
+    </section>
+
+    <!-- 3. SEND -------------------------------------------------------- -->
+    <section id="panel-send" role="tabpanel" aria-labelledby="tab-send" hidden>
+      <div class="intro">
+        <h2>Review and send</h2>
+        <p class="muted">“Open in Gmail” opens a new email to the coach and copies your message. Paste it in, read it over, then click Send in Gmail. Nothing is sent from this page.</p>
+      </div>
+      <div class="send-head">
+        <span id="send-summary" class="muted"></span>
+        <button type="button" class="btn btn-quiet" id="clear-sent">Clear sent schools</button>
+      </div>
+      <div id="send-notes"></div>
+      <div id="send-list" class="send-list"></div>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <span id="save-note">Saved in this browser.</span>
+    <span class="foot-actions">
+      <button type="button" class="link-btn" id="backup">Download backup</button>
+      <label class="link-btn file-btn">Restore backup<input id="restore" type="file" accept=".json,application/json"></label>
+    </span>
+  </footer>
+
+  <dialog id="edit-dialog" aria-labelledby="edit-title">
+    <form id="edit-form" novalidate>
+      <h3 id="edit-title">Edit school</h3>
+      <div class="field"><label for="f-school">School</label><input id="f-school" type="text" placeholder="University of North Carolina"></div>
+      <div class="field"><label for="f-coach">Head coach (full name)</label><input id="f-coach" type="text" placeholder="Jane Smith"></div>
+      <div class="field"><label for="f-email">Head coach email</label><input id="f-email" type="email" placeholder="jsmith@school.edu"></div>
+      <div class="field">
+        <label for="f-assistants">Assistant coach emails (optional)</label>
+        <textarea id="f-assistants" rows="2" placeholder="Separate with commas"></textarea>
+        <p class="hint">These are CC'd on the email to this school.</p>
+      </div>
+      <p class="hint" id="f-contacts"></p>
+      <p class="error" id="edit-error" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-danger" id="f-delete">Delete school</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-quiet" id="f-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="coaches.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
