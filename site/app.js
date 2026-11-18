@@ -272,6 +272,8 @@
   // ------------------------------------------------------------ state
 
   const STORE_KEY = 'coach-outreach-v1';
+  // Her default subject is a Netlify setting (DEFAULT_SUBJECT), loaded after
+  // sign-in from /api/config, so no personal details live in this public code.
   const DEFAULT_SUBJECT = '';
   const OLD_DEFAULT_SUBJECTS = ['2029 Outside Back – Showcase Schedule'];
   const DEFAULT_BODY = [
@@ -291,7 +293,6 @@
       bodyHtml: textToHtml(DEFAULT_BODY),
       clubCoach: '',
       gmailAccount: '',
-      password: '',          // the site password, remembered in this browser
       listUpdatedAt: null,   // when the online coach list last changed
       coaches: [],           // copy of the online list (+ this browser's ticks)
     };
@@ -303,6 +304,7 @@
     if (typeof s.body === 'string' && typeof s.bodyHtml !== 'string') out.bodyHtml = textToHtml(s.body);
     delete out.body;
     if (OLD_DEFAULT_SUBJECTS.includes(out.subject)) out.subject = DEFAULT_SUBJECT;
+    delete out.password; // older versions kept the password here; sign-in replaces it
     out.version = 2;
     return out;
   }
@@ -326,15 +328,16 @@
   const SERVER_FIELDS = ['id', 'school', 'coach', 'email', 'assistants', 'questionnaire', 'contacts'];
   const serverFields = (c) => Object.fromEntries(SERVER_FIELDS.map((k) => [k, c[k]]));
 
-  // locked: needs the password · loading · ok · offline: showing the saved copy
-  const sync = { status: 'locked', message: '' };
+  // loading · ok · offline: showing the copy saved in this browser
+  const sync = { status: 'loading', message: '' };
 
   async function api(method, path, body, resource) {
     let res;
     try {
       res = await fetch('/api/' + (resource || 'coaches') + (path || ''), {
         method,
-        headers: { 'content-type': 'application/json', 'x-app-password': state.password || '' },
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
         body: body ? JSON.stringify(body) : undefined,
         cache: 'no-store',
       });
@@ -370,7 +373,6 @@
   }
 
   async function loadFromServer() {
-    if (!state.password) { setSync('locked'); return; }
     setSync('loading');
     try {
       const doc = await api('GET');
@@ -383,7 +385,7 @@
           ' schools saved in this browser?', 'Upload them');
       }
     } catch (e) {
-      if (e.status === 401) { state.password = ''; save(); setSync('locked', 'That password didn\'t work.'); }
+      if (e.status === 401) { signedOut(); return; }
       else setSync('offline', e.message);
     }
   }
@@ -391,7 +393,7 @@
   /** Sends one change to the server; the server answers with the new list. */
   async function change(method, path, body, doneMsg) {
     if (sync.status !== 'ok') {
-      toast(sync.status === 'locked' ? 'Unlock the coach list first (Schools tab)' : 'The online list can\'t be reached right now');
+      toast('The online list can\'t be reached right now');
       return false;
     }
     try {
@@ -399,10 +401,32 @@
       if (doneMsg) toast(doneMsg);
       return true;
     } catch (e) {
-      if (e.status === 401) { state.password = ''; save(); setSync('locked', 'Please enter the password again.'); }
+      if (e.status === 401) { signedOut(); return false; }
       else if (e.offline) setSync('offline', e.message);
       toast(e.message);
       return false;
+    }
+  }
+
+  /** The sign-in expired or the password changed: reload to the sign-in page. */
+  function signedOut() {
+    toast('Please sign in again');
+    setTimeout(() => location.reload(), 800);
+  }
+
+  /** Personal defaults (kept out of the public code) from the server. */
+  async function loadConfig() {
+    try {
+      const cfg = await api('GET', '', null, 'config');
+      if (cfg.defaultSubject && (!state.subject || OLD_DEFAULT_SUBJECTS.includes(state.subject))) {
+        state.subject = cfg.defaultSubject;
+        save();
+        $('#subject').value = state.subject;
+        renderPreview();
+        renderSteps();
+      }
+    } catch (e) {
+      if (e.status === 401) signedOut();
     }
   }
 
@@ -413,18 +437,13 @@
   }
 
   function renderSync() {
-    const locked = sync.status === 'locked';
-    $('#unlock').hidden = !locked;
-    $('#unlock-error').textContent = sync.message;
-    $('#unlock-error').hidden = !(locked && sync.message);
-    $('#lock').hidden = locked;
     const note = $('#sync-note');
     note.classList.toggle('warn', sync.status === 'offline');
     note.textContent =
       sync.status === 'ok' ? 'Coach list saved online' + (state.listUpdatedAt ? ' · last changed ' + timeAgo(state.listUpdatedAt) : '') + '.'
       : sync.status === 'loading' ? 'Loading the coach list…'
       : sync.status === 'offline' ? sync.message + ' Showing the copy saved in this browser; changes are paused.'
-      : state.coaches.length ? 'Showing the copy saved in this browser. Unlock to make changes.' : '';
+      : '';
     document.querySelectorAll('[data-needs-online]').forEach((b) => { b.disabled = sync.status !== 'ok'; });
     renderTemplates();
   }
@@ -1149,7 +1168,7 @@
   // ------------------------------------------------------------ backup
 
   function downloadBackup() {
-    const { password, ...rest } = state; // never put the password in a file
+    const rest = state;
     saveFile('coach-outreach-backup-' + todayIso() + '.json', JSON.stringify(rest, null, 2));
   }
 
@@ -1209,7 +1228,6 @@
   function renderTemplates() {
     const list = $('#template-list');
     const online = sync.status === 'ok';
-    $('#templates-locked').hidden = online || templates.length > 0;
     $('#save-template').disabled = !online;
     const shown = templates.slice(0, SHOWN_TEMPLATES);
     if (!shown.length) {
@@ -1329,7 +1347,6 @@
     window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
     $('#to-schools').addEventListener('click', () => showTab('schools'));
     $('#save-template').addEventListener('click', saveAsTemplate);
-    $('#templates-unlock').addEventListener('click', () => { window.scrollTo({ top: 0, behavior: 'smooth' }); $('#unlock-password').focus({ preventScroll: true }); });
     $('#to-send').addEventListener('click', () => showTab('send'));
     document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.go)));
 
@@ -1345,14 +1362,6 @@
     $('#clear-sent').addEventListener('click', clearSent);
     $('#backup').addEventListener('click', downloadBackup);
     $('#restore').addEventListener('change', (e) => { if (e.target.files[0]) restoreBackup(e.target.files[0]); e.target.value = ''; });
-    $('#unlock').addEventListener('submit', (e) => {
-      e.preventDefault();
-      state.password = $('#unlock-password').value;
-      $('#unlock-password').value = '';
-      save();
-      loadFromServer();
-    });
-    $('#lock').addEventListener('click', () => { state.password = ''; templates = []; state.templatesCache = []; save(); setSync('locked'); renderSchools(); toast('Locked. The password is no longer saved in this browser.'); });
     $('#json-download').addEventListener('click', downloadCoachesJson);
     $('#json-upload').addEventListener('change', (e) => { if (e.target.files[0]) uploadCoachesJson(e.target.files[0]); e.target.value = ''; });
     $('#replace-yes').addEventListener('click', confirmReplace);
@@ -1366,6 +1375,7 @@
     catch (e) { storageOk = false; renderSaveNote(); }
     showTab(location.hash.slice(1) || 'write');
     renderSync();
+    loadConfig();
     loadFromServer();
   }
 

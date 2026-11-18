@@ -40,18 +40,6 @@
   </header>
 
   <main class="wrap">
-    <form id="unlock" class="unlock" hidden>
-      <div class="field">
-        <label for="unlock-password">Password for your coach list and templates</label>
-        <div class="unlock-row">
-          <input id="unlock-password" type="password" autocomplete="current-password" required>
-          <button type="submit" class="btn btn-primary">Unlock</button>
-        </div>
-        <p class="hint">Only needed once on each computer. It's remembered in this browser.</p>
-        <p class="error" id="unlock-error" hidden></p>
-      </div>
-    </form>
-
     <!-- 1. WRITE ------------------------------------------------------- -->
     <section id="panel-write" role="tabpanel" aria-labelledby="tab-write">
       <div class="intro intro-inline">
@@ -70,10 +58,6 @@
           </div>
           <ol id="template-list" class="template-list"></ol>
           <p class="hint" id="templates-more" hidden></p>
-          <div class="note" id="templates-locked" hidden>
-            <p>Your templates are saved online with the coach list.</p>
-            <button type="button" class="btn btn-small" id="templates-unlock">Unlock to see them</button>
-          </div>
         </aside>
 
         <div class="compose">
@@ -179,7 +163,7 @@
         <span class="list-file-actions">
           <button type="button" class="link-btn" id="json-download">Download coaches.json</button>
           <label class="link-btn file-btn">Upload coaches.json<input id="json-upload" type="file" accept=".json,application/json"></label>
-          <button type="button" class="link-btn" id="lock" hidden>Lock</button>
+
         </span>
       </div>
 
@@ -214,6 +198,7 @@
     <span id="save-note">Saved in this browser.</span>
     <span class="foot-actions">
       <button type="button" class="link-btn" id="backup">Download backup</button>
+      <a class="link-btn" href="/logout">Sign out</a>
       <label class="link-btn file-btn">Restore backup<input id="restore" type="file" accept=".json,application/json"></label>
     </span>
   </footer>

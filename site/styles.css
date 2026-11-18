@@ -175,7 +175,7 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--focus); out
 .tpl-use.is-armed { background: var(--courage-red); border-color: var(--courage-red); color: #fff; }
 .tpl-empty { display: grid; gap: 4px; font-size: 13px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; }
 .tpl-save { flex: none; }
-#templates-locked { background: var(--pitch-soft); display: grid; gap: 8px; font-size: 13px; justify-items: start; }
+
 .compose { display: grid; gap: 18px; min-width: 0; }
 /* Let every box in the two columns shrink to its column, so a wide table
    scrolls inside itself instead of pushing past the page edge. */
@@ -241,10 +241,6 @@ mark.missing { background: transparent; color: var(--danger); outline: 1px dashe
 /* Online list */
 .req { font-weight: 500; color: var(--muted); }
 .field.needs-attention input { border-color: var(--danger); outline: 2px solid var(--danger); outline-offset: 0; }
-main > .unlock { margin-bottom: 20px; }
-.unlock { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; max-width: 520px; }
-.unlock-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.unlock-row input { flex: 1 1 200px; width: auto; }
 .replace-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .replace-actions { display: flex; gap: 6px; }
 .list-file { display: flex; justify-content: space-between; align-items: center; gap: 8px 16px; flex-wrap: wrap; font-size: 13px; }

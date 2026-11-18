@@ -1,7 +1,7 @@
 // Shared helpers for the site's API functions (coaches, templates).
 // Lives outside netlify/functions so it isn't deployed as a function itself.
 
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 export const STORE_NAME = 'coach-outreach';
 
@@ -16,14 +16,28 @@ export function reply(status, body, extraHeaders = {}) {
   });
 }
 
-/** True when the request's x-app-password matches APP_PASSWORD. */
+const sameBytes = (x, y) => {
+  const a = createHash('sha256').update(String(x)).digest();
+  const b = createHash('sha256').update(String(y)).digest();
+  return timingSafeEqual(a, b);
+};
+
+/** The sign-in cookie set by the site's gate (netlify/edge-functions/gate.js). */
+function sessionOk(req, password) {
+  const cookie = (req.headers.get('cookie') || '').split(/;\s*/).find((c) => c.startsWith('coach_session='));
+  if (!cookie) return false;
+  const [expires, sig] = decodeURIComponent(cookie.slice('coach_session='.length)).split('.');
+  if (!expires || !sig || !(Number(expires) > Date.now() / 1000)) return false;
+  const good = createHmac('sha256', password).update('coach-session:' + expires).digest('base64url');
+  return sameBytes(sig, good);
+}
+
+/** Signed in through the site, or the x-app-password header matches APP_PASSWORD. */
 export function passwordOk(req) {
   const expected = process.env.APP_PASSWORD || '';
   if (!expected) throw new HttpError(500, 'The site password (APP_PASSWORD) is not set up in Netlify yet.');
-  const given = req.headers.get('x-app-password') || '';
-  const a = createHash('sha256').update(given).digest();
-  const b = createHash('sha256').update(expected).digest();
-  return timingSafeEqual(a, b);
+  if (sessionOk(req, expected)) return true;
+  return sameBytes(req.headers.get('x-app-password') || '', expected);
 }
 
 export const str = (v, max) => String(v ?? '').trim().slice(0, max);
