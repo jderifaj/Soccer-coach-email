@@ -51,7 +51,7 @@ export function cleanAssistants(value, school) {
 /** Checks and tidies one school. `existing` is the stored version when editing. */
 export function cleanCoach(input, existing) {
   if (!input || typeof input !== 'object') throw new HttpError(400, 'Expected a school.');
-  const base = existing || { id: randomUUID(), school: '', coach: '', email: '', assistants: [], questionnaire: '', contacts: [] };
+  const base = existing || { id: randomUUID(), school: '', coach: '', email: '', assistants: [], contacts: [] };
   const pick = (k, max) => (k in input ? str(input[k], max) : base[k]);
   const out = {
     id: base.id,
@@ -59,7 +59,6 @@ export function cleanCoach(input, existing) {
     coach: pick('coach', 200),
     email: pick('email', 254),
     assistants: base.assistants,
-    questionnaire: pick('questionnaire', 500),
     contacts: base.contacts,
   };
   if ('contacts' in input) {
@@ -78,7 +77,7 @@ function cleanList(list) {
   const seen = new Set();
   return list.map((c) => {
     const keepId = c && typeof c.id === 'string' && /^[\w-]{1,64}$/.test(c.id) && !seen.has(c.id);
-    const clean = cleanCoach(c, keepId ? { id: c.id, school: '', coach: '', email: '', assistants: [], questionnaire: '', contacts: [] } : undefined);
+    const clean = cleanCoach(c, keepId ? { id: c.id, school: '', coach: '', email: '', assistants: [], contacts: [] } : undefined);
     seen.add(clean.id);
     return clean;
   });

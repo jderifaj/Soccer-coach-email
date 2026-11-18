@@ -207,7 +207,6 @@
     const iCoach = find('coach', 'headcoach', 'coachname');
     const iEmail = find('emailaddress', 'email', 'headcoachemail', 'coachemail');
     const iAsst = find('assistantemails', 'assistants', 'cc');
-    const iNotes = find('questionnaire', 'questionaire', 'notes');
     if (iSchool < 0 || iCoach < 0 || iEmail < 0) {
       throw new Error('The first row needs columns named University, Coach and Email Address.');
     }
@@ -227,7 +226,6 @@
         coach: (r[iCoach] || '').trim(),
         email: (r[iEmail] || '').trim(),
         assistants: iAsst >= 0 ? normAssistants((r[iAsst] || '').trim()) : [],
-        questionnaire: iNotes >= 0 ? (r[iNotes] || '').trim() : '',
         contacts: Array.from(new Set(contacts)).sort(),
       });
     });
@@ -237,7 +235,7 @@
     return {
       id: 'c' + Math.random().toString(36).slice(2, 10),
       school: c.school || '', coach: c.coach || '', email: c.email || '',
-      assistants: normAssistants(c.assistants), questionnaire: c.questionnaire || '', contacts: c.contacts || [],
+      assistants: normAssistants(c.assistants), contacts: c.contacts || [],
       selected: false, opened: null,
     };
   }
@@ -326,7 +324,7 @@
 
   // --- The online coach list (coaches.json on Netlify) ----------------------
 
-  const SERVER_FIELDS = ['id', 'school', 'coach', 'email', 'assistants', 'questionnaire', 'contacts'];
+  const SERVER_FIELDS = ['id', 'school', 'coach', 'email', 'assistants', 'contacts'];
   const serverFields = (c) => Object.fromEntries(SERVER_FIELDS.map((k) => [k, c[k]]));
 
   // loading · ok · offline: showing the copy saved in this browser
@@ -1015,7 +1013,6 @@
         normAssistants(c.assistants).length
           ? el('span', { class: 'school-asst', text: 'Assistants (CC): ' + normAssistants(c.assistants).map(describeAssistant).join(', ') })
           : null,
-        c.questionnaire ? el('span', { class: 'school-asst', text: 'Notes: ' + c.questionnaire }) : null,
         problems.length ? el('span', { class: 'school-problem', text: problems.join('. ') }) : null),
       el('span', { class: 'school-meta' },
         last ? el('span', { class: 'chip', title: c.contacts.map(prettyDate).join(', '), text: 'Last ' + prettyDate(last) + ' · ' + c.contacts.length + '×' })
@@ -1051,7 +1048,6 @@
     $('#f-coach').value = c ? c.coach : '';
     $('#f-email').value = c ? c.email : '';
     renderAssistantRows(c ? normAssistants(c.assistants) : []);
-    $('#f-questionnaire').value = c ? c.questionnaire : '';
     $('#f-contacts').textContent = c && c.contacts.length
       ? 'Contacted: ' + c.contacts.map(prettyDate).join(', ') : 'No contact dates yet.';
     $('#f-delete').hidden = !c;
@@ -1067,7 +1063,6 @@
     const vals = {
       school: $('#f-school').value.trim(), coach: $('#f-coach').value.trim(),
       email: $('#f-email').value.trim(), assistants: readAssistantRows(),
-      questionnaire: $('#f-questionnaire').value.trim(),
     };
     const err = !vals.school ? 'Enter the school name.'
       : !EMAIL_RE.test(vals.email) ? 'Enter the head coach\'s email address.'
@@ -1141,7 +1136,6 @@
           match.email = n.email || match.email;
           const known = new Set(normAssistants(match.assistants).map((a) => a.email.toLowerCase()));
           match.assistants = normAssistants(match.assistants).concat(normAssistants(n.assistants).filter((a) => !known.has(a.email.toLowerCase())));
-          match.questionnaire = n.questionnaire || match.questionnaire;
           match.contacts = Array.from(new Set(match.contacts.concat(n.contacts))).sort();
           updated++;
         } else { list.push(serverFields(n)); added++; }
