@@ -40,24 +40,40 @@
   </header>
 
   <main class="wrap">
+    <form id="unlock" class="unlock" hidden>
+      <div class="field">
+        <label for="unlock-password">Password for your coach list and templates</label>
+        <div class="unlock-row">
+          <input id="unlock-password" type="password" autocomplete="current-password" required>
+          <button type="submit" class="btn btn-primary">Unlock</button>
+        </div>
+        <p class="hint">Only needed once on each computer. It's remembered in this browser.</p>
+        <p class="error" id="unlock-error" hidden></p>
+      </div>
+    </form>
+
     <!-- 1. WRITE ------------------------------------------------------- -->
     <section id="panel-write" role="tabpanel" aria-labelledby="tab-write">
-      <div class="intro">
+      <div class="intro intro-inline">
         <h2>Write your email once</h2>
         <p class="muted">Click a button below to drop in a placeholder like <b>[Coach]</b> or <b>[School]</b>. It's swapped for the right name for every school.</p>
       </div>
 
       <div class="write-grid">
         <aside class="templates-pane" aria-labelledby="templates-title">
-          <h3 class="pane-title" id="templates-title">Recent templates</h3>
-          <p class="hint">Start from an email you've used before. “Use this” fills in the subject and message.</p>
+          <div class="tpl-head">
+            <div class="tpl-head-text">
+              <h3 class="pane-title" id="templates-title">Recent templates</h3>
+              <p class="hint">Start from an email you've used before. “Use this” fills in the subject and message.</p>
+            </div>
+            <button type="button" class="btn btn-small tpl-save" id="save-template">Save this email as a template</button>
+          </div>
           <ol id="template-list" class="template-list"></ol>
           <p class="hint" id="templates-more" hidden></p>
           <div class="note" id="templates-locked" hidden>
             <p>Your templates are saved online with the coach list.</p>
             <button type="button" class="btn btn-small" id="templates-unlock">Unlock to see them</button>
           </div>
-          <button type="button" class="btn btn-small tpl-save" id="save-template">Save this email as a template</button>
         </aside>
 
         <div class="compose">
@@ -100,10 +116,11 @@
           <fieldset class="settings">
             <legend>Who it comes from and who's copied</legend>
             <div class="field">
-              <label for="gmail-account">Your Gmail address</label>
+              <label for="gmail-account">Your Gmail address <span class="req">(required)</span></label>
               <input id="gmail-account" type="email" autocomplete="email" placeholder="you@gmail.com">
               <p class="hint">Makes sure Gmail opens in your account if more than one is signed in.</p>
               <p class="error" id="gmail-account-err" hidden>That doesn't look like an email address.</p>
+              <p class="error" id="gmail-account-required" hidden>Enter the Gmail address you'll send from before choosing schools.</p>
             </div>
             <div class="field">
               <label for="club-coach">Club coach email (CC'd on every email)</label>
@@ -136,17 +153,6 @@
         <p class="muted">Tick each school that should get this email. Click Edit to fix a name, add assistant coaches to CC, or delete a school. Changes are saved online, so the list is the same on every computer.</p>
       </div>
 
-      <form id="unlock" class="unlock" hidden>
-        <div class="field">
-          <label for="unlock-password">Password for the coach list</label>
-          <div class="unlock-row">
-            <input id="unlock-password" type="password" autocomplete="current-password" required>
-            <button type="submit" class="btn btn-primary">Unlock</button>
-          </div>
-          <p class="hint">Only needed once on each computer. It's remembered in this browser.</p>
-          <p class="error" id="unlock-error" hidden></p>
-        </div>
-      </form>
 
       <div id="replace-bar" class="note warn replace-bar" hidden>
         <span id="replace-msg"></span>

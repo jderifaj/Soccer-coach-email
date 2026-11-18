@@ -602,8 +602,31 @@
   // ------------------------------------------------------------ tabs
 
   const TABS = ['write', 'schools', 'send'];
+  /** Her Gmail address is required before leaving step 1. */
+  function gmailOk() {
+    return EMAIL_RE.test(String(state.gmailAccount || '').trim());
+  }
+
   function showTab(name) {
     if (!TABS.includes(name)) name = 'write';
+    if (name !== 'write' && !gmailOk()) {
+      showTabNow('write');
+      askForGmail();
+      return;
+    }
+    showTabNow(name);
+  }
+
+  function askForGmail() {
+    const field = $('#gmail-account');
+    $('#gmail-account-required').hidden = false;
+    field.setAttribute('aria-invalid', 'true');
+    field.closest('.field').classList.add('needs-attention');
+    field.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    field.focus({ preventScroll: true });
+  }
+
+  function showTabNow(name) {
     TABS.forEach((t) => {
       $('#tab-' + t).setAttribute('aria-selected', String(t === name));
       $('#panel-' + t).hidden = t !== name;
@@ -655,7 +678,17 @@
       }
     });
     club.addEventListener('input', () => { state.clubCoach = club.value.trim(); save(); validateSettings(); renderPreview(); });
-    acct.addEventListener('input', () => { state.gmailAccount = acct.value.trim(); save(); validateSettings(); });
+    acct.addEventListener('input', () => {
+      state.gmailAccount = acct.value.trim();
+      save();
+      validateSettings();
+      if (gmailOk()) {
+        $('#gmail-account-required').hidden = true;
+        acct.removeAttribute('aria-invalid');
+        acct.closest('.field').classList.remove('needs-attention');
+      }
+      renderSteps();
+    });
 
     // Toolbar buttons must not take focus away from the message.
     document.querySelectorAll('.editor-toolbar button').forEach((b) => b.addEventListener('mousedown', (e) => e.preventDefault()));
@@ -1265,7 +1298,7 @@
     const picked = state.coaches.filter((c) => c.selected);
     const sent = picked.filter((c) => c.opened === todayIso()).length;
     const steps = {
-      write: [emailReady, emailReady ? 'Email ready' : 'Start here'],
+      write: [emailReady && gmailOk(), !gmailOk() ? 'Add your Gmail address' : emailReady ? 'Email ready' : 'Start here'],
       schools: [picked.length > 0, picked.length ? picked.length + (picked.length === 1 ? ' school' : ' schools') + ' picked' : 'Pick schools'],
       send: [picked.length > 0 && sent === picked.length, picked.length ? sent + ' of ' + picked.length + ' sent' : 'Nothing to send yet'],
     };
@@ -1296,7 +1329,7 @@
     window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
     $('#to-schools').addEventListener('click', () => showTab('schools'));
     $('#save-template').addEventListener('click', saveAsTemplate);
-    $('#templates-unlock').addEventListener('click', () => { showTab('schools'); $('#unlock-password').focus(); });
+    $('#templates-unlock').addEventListener('click', () => { window.scrollTo({ top: 0, behavior: 'smooth' }); $('#unlock-password').focus({ preventScroll: true }); });
     $('#to-send').addEventListener('click', () => showTab('send'));
     document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.go)));
 

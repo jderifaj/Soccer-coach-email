@@ -56,10 +56,16 @@ body {
   font: 15px/1.55 var(--font-body);
 }
 .wrap {
-  max-width: 1240px;
   margin: 0 auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+/* Desktop: use the whole window, with 2rem of space at each edge */
+@media (min-width: 821px) {
+  .wrap {
+    padding-left: max(2rem, env(safe-area-inset-left, 0px));
+    padding-right: max(2rem, env(safe-area-inset-right, 0px));
+  }
 }
 h1, h2, h3 { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.01em; text-wrap: balance; margin: 0; }
 h2 { font-size: 30px; line-height: 1.1; }
@@ -107,6 +113,8 @@ p { margin: 0; }
 main { padding-block: 24px 40px; }
 section { display: grid; gap: 20px; }
 .intro { display: grid; gap: 6px; max-width: 65ch; }
+/* Heading and its one-line explanation side by side (wraps on narrow screens) */
+.intro-inline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; max-width: none; }
 
 /* Forms */
 .field { display: grid; gap: 6px; }
@@ -134,7 +142,7 @@ textarea { resize: vertical; line-height: 1.6; }
 .editor { min-height: 360px; padding: 12px 14px; line-height: 1.6; outline: none; overflow-wrap: anywhere; }
 .editor a, .letter a { color: var(--pitch); text-decoration: underline; }
 .editor table, .letter table { border-collapse: collapse; margin: 6px 0; display: block; overflow-x: auto; max-width: 100%; }
-.editor td, .editor th, .letter td, .letter th { padding: 2px 12px 2px 0; text-align: left; vertical-align: top; }
+.editor td, .editor th, .letter td, .letter th { padding: 2px 12px 2px 0; text-align: left; vertical-align: top; white-space: nowrap; overflow-wrap: normal; }
 .editor p, .letter p { margin: 0 0 1em; }
 .editor ul, .editor ol, .letter ul, .letter ol { margin: 0 0 1em; padding-left: 1.4em; }
 .copy-box { color: #000; background: #fff; font: 14px Arial, sans-serif; }
@@ -151,11 +159,14 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--focus); out
 .settings { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px 16px; margin: 0; display: grid; gap: 14px; background: var(--surface); }
 .settings legend { padding: 0 6px; }
 
-.write-grid { display: grid; grid-template-columns: 250px minmax(0, 1.15fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.write-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px 2rem; align-items: start; }
 
 /* Recent templates (left column of the Write step) */
-.templates-pane { position: sticky; top: 120px; display: grid; gap: 10px; min-width: 0; }
-.template-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+/* A full-width row above the email, on every screen size */
+.templates-pane { grid-column: 1 / -1; display: grid; gap: 10px; min-width: 0; }
+.tpl-head { display: flex; justify-content: space-between; align-items: end; gap: 8px 16px; flex-wrap: wrap; }
+.tpl-head-text { display: grid; gap: 2px; }
+.template-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .tpl { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--courage-gold); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; min-width: 0; }
 .tpl-title { font-weight: 600; font-size: 14px; line-height: 1.3; overflow-wrap: anywhere; }
 .tpl-meta { font-size: 12px; color: var(--muted); }
@@ -163,9 +174,12 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--focus); out
 .tpl-actions { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
 .tpl-use.is-armed { background: var(--courage-red); border-color: var(--courage-red); color: #fff; }
 .tpl-empty { display: grid; gap: 4px; font-size: 13px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; }
-.tpl-save { justify-self: start; }
+.tpl-save { flex: none; }
 #templates-locked { background: var(--pitch-soft); display: grid; gap: 8px; font-size: 13px; justify-items: start; }
 .compose { display: grid; gap: 18px; min-width: 0; }
+/* Let every box in the two columns shrink to its column, so a wide table
+   scrolls inside itself instead of pushing past the page edge. */
+.compose > *, .field > *, .preview-pane > *, .preview > *, .card > *, .letter-wrap > * { min-width: 0; }
 .preview-pane { position: sticky; top: 120px; display: grid; gap: 10px; min-width: 0; }
 .pane-title { font-size: 18px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 .inline-select select { width: auto; max-width: 100%; padding: 6px 10px; font-size: 14px; }
@@ -225,6 +239,9 @@ mark.missing { background: transparent; color: var(--danger); outline: 1px dashe
 .empty { padding: 28px 16px; text-align: center; display: grid; gap: 8px; justify-items: center; }
 
 /* Online list */
+.req { font-weight: 500; color: var(--muted); }
+.field.needs-attention input { border-color: var(--danger); outline: 2px solid var(--danger); outline-offset: 0; }
+main > .unlock { margin-bottom: 20px; }
 .unlock { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; max-width: 520px; }
 .unlock-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .unlock-row input { flex: 1 1 200px; width: auto; }
@@ -279,9 +296,7 @@ dialog::backdrop { background: rgb(10 20 15 / 0.45); }
   padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 500; z-index: 20; box-shadow: var(--shadow);
 }
 
-@media (max-width: 1100px) {
-  .write-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
-  .templates-pane { grid-column: 1 / -1; position: static; }
+@media (max-width: 1000px) {
   .template-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
 }
 @media (max-width: 820px) {
