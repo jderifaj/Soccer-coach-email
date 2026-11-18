@@ -10,37 +10,16 @@
 // environment variable set in Netlify. Every change returns the full list.
 
 import { getStore } from '@netlify/blobs';
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
+import { HttpError, STORE_NAME, mutateDoc, readBody, reply, str, withAuth } from '../lib/common.mjs';
 
 const KEY = 'coaches.json';
-const MAX_BODY = 1_000_000;
 const MAX_COACHES = 2000;
 const EMAIL_RE = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const config = { path: ['/api/coaches', '/api/coaches/:id'] };
 
-class HttpError extends Error {
-  constructor(status, message) { super(message); this.status = status; }
-}
-
-function reply(status, body, extraHeaders = {}) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...extraHeaders },
-  });
-}
-
-function passwordOk(req) {
-  const expected = process.env.APP_PASSWORD || '';
-  if (!expected) throw new HttpError(500, 'The site password (APP_PASSWORD) is not set up in Netlify yet.');
-  const given = req.headers.get('x-app-password') || '';
-  const a = createHash('sha256').update(given).digest();
-  const b = createHash('sha256').update(expected).digest();
-  return timingSafeEqual(a, b);
-}
-
-const str = (v, max) => String(v ?? '').trim().slice(0, max);
 
 function splitEmails(s) {
   return String(s || '').split(/[\s,;]+/).filter(Boolean);
@@ -107,31 +86,17 @@ function cleanList(list) {
 const emptyDoc = () => ({ version: 1, updatedAt: null, coaches: [] });
 const sortCoaches = (list) => list.sort((a, b) => a.school.localeCompare(b.school));
 
-/** Read, change and write back, retrying if someone else saved in between. */
-async function mutate(store, change) {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const current = await store.getWithMetadata(KEY, { type: 'json' });
-    const doc = current?.data && Array.isArray(current.data.coaches) ? current.data : emptyDoc();
-    const result = change(doc);
-    doc.version = 1;
-    doc.updatedAt = new Date().toISOString();
-    sortCoaches(doc.coaches);
-    const write = await store.setJSON(KEY, doc, current ? { onlyIfMatch: current.etag } : { onlyIfNew: true });
-    if (write.modified) return { doc, result };
-  }
-  throw new HttpError(409, 'Someone else saved at the same moment. Please try again.');
-}
 
-async function readBody(req) {
-  const text = await req.text();
-  if (text.length > MAX_BODY) throw new HttpError(413, 'That file is too big.');
-  try { return text ? JSON.parse(text) : {}; } catch { throw new HttpError(400, 'That isn\'t valid JSON.'); }
-}
 
-export default async (req, context) => {
-  try {
-    if (!passwordOk(req)) return reply(401, { error: 'Wrong password.' });
-    const store = getStore({ name: 'coach-outreach', consistency: 'strong' });
+const mutate = (store, change) => mutateDoc(store, KEY, {
+  empty: emptyDoc,
+  isValid: (d) => Array.isArray(d.coaches),
+  change,
+  finish: (d) => sortCoaches(d.coaches),
+});
+
+export default withAuth(async (req, context) => {
+    const store = getStore({ name: STORE_NAME, consistency: 'strong' });
     const id = context.params?.id;
 
     if (!id && req.method === 'GET') {
@@ -170,9 +135,4 @@ export default async (req, context) => {
       return reply(200, doc);
     }
     return reply(405, { error: 'Not supported.' }, { allow: 'GET, PUT, POST, DELETE' });
-  } catch (err) {
-    if (err instanceof HttpError) return reply(err.status, { error: err.message });
-    console.error(err);
-    return reply(500, { error: 'Something went wrong on the server. Please try again.' });
-  }
-};
+});

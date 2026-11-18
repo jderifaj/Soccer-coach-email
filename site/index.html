@@ -48,6 +48,18 @@
       </div>
 
       <div class="write-grid">
+        <aside class="templates-pane" aria-labelledby="templates-title">
+          <h3 class="pane-title" id="templates-title">Recent templates</h3>
+          <p class="hint">Start from an email you've used before. “Use this” fills in the subject and message.</p>
+          <ol id="template-list" class="template-list"></ol>
+          <p class="hint" id="templates-more" hidden></p>
+          <div class="note" id="templates-locked" hidden>
+            <p>Your templates are saved online with the coach list.</p>
+            <button type="button" class="btn btn-small" id="templates-unlock">Unlock to see them</button>
+          </div>
+          <button type="button" class="btn btn-small tpl-save" id="save-template">Save this email as a template</button>
+        </aside>
+
         <div class="compose">
           <div class="field">
             <label for="subject">Subject</label>

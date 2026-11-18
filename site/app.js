@@ -91,6 +91,7 @@
       .replace(/<\/(td|th)>\s*(?=<(td|th)\b)/gi, ' · ')
       .replace(/<\/(p|div|tr|li|h\d|table)>/gi, '\n')
       .replace(/<li\b[^>]*>/gi, '• ')
+      .replace(/<(table|ul|ol)\b[^>]*>/gi, '\n')
       .replace(/<[^>]*>/g, '');
     s = decodeEntities(s).replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
     return s.trim();
@@ -246,6 +247,13 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
+  /** A timestamp's date in this computer's time zone, as YYYY-MM-DD. */
+  function localIsoDate(ts) {
+    const d = new Date(ts);
+    if (isNaN(d)) return '';
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
   function prettyDate(iso) {
     if (!iso) return '';
     const [y, m, d] = iso.split('-').map(Number);
@@ -264,7 +272,8 @@
   // ------------------------------------------------------------ state
 
   const STORE_KEY = 'coach-outreach-v1';
-  const DEFAULT_SUBJECT = '2029 Outside Back – Showcase Schedule';
+  const DEFAULT_SUBJECT = '';
+  const OLD_DEFAULT_SUBJECTS = ['2029 Outside Back – Showcase Schedule'];
   const DEFAULT_BODY = [
     'Hi [Coach],',
     '',
@@ -293,6 +302,7 @@
     const out = Object.assign(defaultState(), s);
     if (typeof s.body === 'string' && typeof s.bodyHtml !== 'string') out.bodyHtml = textToHtml(s.body);
     delete out.body;
+    if (OLD_DEFAULT_SUBJECTS.includes(out.subject)) out.subject = DEFAULT_SUBJECT;
     out.version = 2;
     return out;
   }
@@ -319,10 +329,10 @@
   // locked: needs the password · loading · ok · offline: showing the saved copy
   const sync = { status: 'locked', message: '' };
 
-  async function api(method, path, body) {
+  async function api(method, path, body, resource) {
     let res;
     try {
-      res = await fetch('/api/coaches' + (path || ''), {
+      res = await fetch('/api/' + (resource || 'coaches') + (path || ''), {
         method,
         headers: { 'content-type': 'application/json', 'x-app-password': state.password || '' },
         body: body ? JSON.stringify(body) : undefined,
@@ -367,6 +377,7 @@
       const localOnly = state.coaches.length && !doc.coaches.length ? state.coaches.map(serverFields) : null;
       applyDoc(doc);
       setSync('ok');
+      loadTemplates();
       if (localOnly) {
         offerReplace(localOnly, 'The online list is empty. Upload the ' + localOnly.length +
           ' schools saved in this browser?', 'Upload them');
@@ -415,6 +426,7 @@
       : sync.status === 'offline' ? sync.message + ' Showing the copy saved in this browser; changes are paused.'
       : state.coaches.length ? 'Showing the copy saved in this browser. Unlock to make changes.' : '';
     document.querySelectorAll('[data-needs-online]').forEach((b) => { b.disabled = sync.status !== 'ok'; });
+    renderTemplates();
   }
 
   function timeAgo(iso) {
@@ -1033,6 +1045,7 @@
         emailOk && !missing.length
           ? el('a', { class: 'btn btn-primary', href: url, target: '_blank', rel: 'noopener',
               onclick: () => {
+                recordTemplateUse();
                 // Copy first (still inside the click), then the link opens Gmail.
                 copyThen((ok) => {
                   c.opened = c.opened === todayIso() ? c.opened : 'opened:' + todayIso();
@@ -1122,6 +1135,129 @@
     }).catch((e) => toast('Couldn\'t restore: ' + e.message));
   }
 
+  // --- Templates: the last emails she used, saved online -------------------
+
+  let templates = Array.isArray(state.templatesCache) ? state.templatesCache : [];
+  const SHOWN_TEMPLATES = 3;
+
+  async function loadTemplates() {
+    try { applyTemplates(await api('GET', '', null, 'templates')); }
+    catch (e) { renderTemplates(); }
+  }
+
+  function applyTemplates(doc) {
+    templates = doc.templates || [];
+    state.templatesCache = templates;
+    save();
+    // A brand-new email (still the starter text) starts from the latest template.
+    if (templates.length && isStarterEmail()) applyTemplate(templates[0], { quiet: true });
+    renderTemplates();
+  }
+
+  function isStarterEmail() {
+    const text = htmlToText(state.bodyHtml || '').trim();
+    return !text || text === htmlToText(textToHtml(DEFAULT_BODY)).trim();
+  }
+
+  /** Whether the current email is already saved as one of the templates. */
+  function currentIsSaved() {
+    const norm = (x) => String(x || '').replace(/\s+/g, ' ').trim();
+    const html = norm(sanitizeHtml(state.bodyHtml));
+    return templates.some((t) => norm(t.subject) === norm(state.subject) && norm(sanitizeHtml(t.bodyHtml)) === html);
+  }
+
+  function templateTitle(t) {
+    if (t.name) return t.name;
+    const lines = htmlToText(t.bodyHtml).split('\n').map((l) => l.trim()).filter(Boolean);
+    const line = lines.find((l) => !/^(hi|hello|dear)\b/i.test(l)) || lines[0] || t.subject || 'Untitled';
+    return line.length > 48 ? line.slice(0, 46).trimEnd() + '…' : line;
+  }
+
+  function renderTemplates() {
+    const list = $('#template-list');
+    const online = sync.status === 'ok';
+    $('#templates-locked').hidden = online || templates.length > 0;
+    $('#save-template').disabled = !online;
+    const shown = templates.slice(0, SHOWN_TEMPLATES);
+    if (!shown.length) {
+      list.replaceChildren(online ? el('li', { class: 'tpl-empty' },
+        el('p', { text: 'No templates yet.' }),
+        el('p', { class: 'muted', text: 'Each email you open in Gmail is saved here automatically. You can also click "Save this email as a template".' })) : '');
+    } else {
+      list.replaceChildren(...shown.map(templateCard));
+    }
+    $('#templates-more').hidden = templates.length <= SHOWN_TEMPLATES;
+    $('#templates-more').textContent = 'Showing the ' + SHOWN_TEMPLATES + ' most recent of ' + templates.length + ' saved.';
+  }
+
+  function templateCard(t) {
+    const snippet = htmlToText(t.bodyHtml).replace(/\s+/g, ' ').trim();
+    const useBtn = el('button', { type: 'button', class: 'btn btn-primary btn-small tpl-use', text: 'Use this' });
+    useBtn.addEventListener('click', () => {
+      // Replacing an email that isn't saved anywhere needs a second click.
+      if (!useBtn.dataset.armed && !isStarterEmail() && !currentIsSaved()) {
+        useBtn.dataset.armed = '1';
+        useBtn.textContent = 'Replace my email?';
+        useBtn.classList.add('is-armed');
+        setTimeout(() => { if (useBtn.isConnected) { delete useBtn.dataset.armed; useBtn.textContent = 'Use this'; useBtn.classList.remove('is-armed'); } }, 4000);
+        return;
+      }
+      applyTemplate(t);
+    });
+    const delBtn = el('button', { type: 'button', class: 'btn btn-quiet btn-small tpl-delete', text: 'Delete', 'aria-label': 'Delete template ' + templateTitle(t) });
+    delBtn.addEventListener('click', async () => {
+      if (!delBtn.dataset.armed) { delBtn.dataset.armed = '1'; delBtn.textContent = 'Click again'; return; }
+      try { applyTemplates(await api('DELETE', '/' + encodeURIComponent(t.id), null, 'templates')); toast('Template deleted'); }
+      catch (e) { toast(e.message); }
+    });
+    return el('li', { class: 'tpl' },
+      el('p', { class: 'tpl-title', text: templateTitle(t) }),
+      el('p', { class: 'tpl-meta', text: 'Last used ' + prettyDate(localIsoDate(t.lastUsed)) }),
+      el('p', { class: 'tpl-snippet', text: snippet }),
+      el('div', { class: 'tpl-actions' }, useBtn, delBtn));
+  }
+
+  /** Puts a template's subject and message into the editor. */
+  function applyTemplate(t, opts) {
+    state.subject = t.subject || state.subject;
+    state.bodyHtml = sanitizeHtml(t.bodyHtml);
+    save();
+    fillWriteFields();
+    renderPreview();
+    renderSteps();
+    if (opts && opts.quiet) return;
+    toast('Template loaded. Edit it as much as you like.');
+    if (sync.status === 'ok') {
+      api('PUT', '/' + encodeURIComponent(t.id), { used: true }, 'templates').then(applyTemplatesQuietly, () => {});
+    }
+  }
+
+  function applyTemplatesQuietly(doc) {
+    templates = doc.templates || [];
+    state.templatesCache = templates;
+    save();
+    renderTemplates();
+  }
+
+  async function saveAsTemplate() {
+    if (sync.status !== 'ok') { toast('Unlock the coach list first (Schools tab)'); return; }
+    try {
+      applyTemplatesQuietly(await api('POST', '', { subject: state.subject, bodyHtml: sanitizeHtml(state.bodyHtml) }, 'templates'));
+      toast('Saved as a template');
+    } catch (e) { toast(e.message); }
+  }
+
+  /** Called when an email is opened in Gmail: saves it / marks it as used. */
+  let lastRecorded = '';
+  function recordTemplateUse() {
+    if (sync.status !== 'ok') return;
+    const key = state.subject + '\n' + state.bodyHtml;
+    if (key === lastRecorded) return; // once per version of the email
+    lastRecorded = key;
+    api('POST', '', { subject: state.subject, bodyHtml: sanitizeHtml(state.bodyHtml) }, 'templates')
+      .then(applyTemplatesQuietly, () => { lastRecorded = ''; });
+  }
+
   /** The status line and check mark under each step in the header. */
   function renderSteps() {
     const bodyText = htmlToText(state.bodyHtml || '');
@@ -1159,6 +1295,8 @@
     TABS.forEach((t) => $('#tab-' + t).addEventListener('click', () => showTab(t)));
     window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
     $('#to-schools').addEventListener('click', () => showTab('schools'));
+    $('#save-template').addEventListener('click', saveAsTemplate);
+    $('#templates-unlock').addEventListener('click', () => { showTab('schools'); $('#unlock-password').focus(); });
     $('#to-send').addEventListener('click', () => showTab('send'));
     document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.go)));
 
@@ -1181,7 +1319,7 @@
       save();
       loadFromServer();
     });
-    $('#lock').addEventListener('click', () => { state.password = ''; save(); setSync('locked'); renderSchools(); toast('Locked. The password is no longer saved in this browser.'); });
+    $('#lock').addEventListener('click', () => { state.password = ''; templates = []; state.templatesCache = []; save(); setSync('locked'); renderSchools(); toast('Locked. The password is no longer saved in this browser.'); });
     $('#json-download').addEventListener('click', downloadCoachesJson);
     $('#json-upload').addEventListener('change', (e) => { if (e.target.files[0]) uploadCoachesJson(e.target.files[0]); e.target.value = ''; });
     $('#replace-yes').addEventListener('click', confirmReplace);
