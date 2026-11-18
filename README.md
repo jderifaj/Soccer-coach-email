@@ -23,9 +23,14 @@ All requests need either the sign-in cookie (the page uses this) or the header `
 |---|---|
 | `GET /api/coaches` | Returns the whole list |
 | `PUT /api/coaches` with `{ "coaches": [...] }` | Replaces the whole list |
-| `POST /api/coaches` with one school | Adds a school |
+| `PUT /api/coaches` with `{ "order": [ids], "top": [ids] }` | Saves the dragged order and the Top 3 (at most three ids) |
+| `POST /api/coaches` with one school | Adds a school (in its alphabetical spot) |
 | `PUT /api/coaches/<id>` with any fields | Changes one school |
 | `DELETE /api/coaches/<id>` | Deletes one school |
+
+School logos are athletics logos from ESPN, saved in `site/logos/<ESPN team id>.png`. To add one for a new
+school, download `https://a.espncdn.com/combiner/i?img=/i/teamlogos/ncaa/500/<id>.png&w=160&h=160` into that
+folder and add the school's name to `LOGOS` in `site/app.js`. Schools without a logo show their initials.
 
 Templates work the same way at `/api/templates`: `GET` (all, newest-used first), `POST { subject, bodyHtml, name? }` (save, or mark as used if identical), `PUT /api/templates/<id> { name?, subject?, bodyHtml?, used? }`, `DELETE /api/templates/<id>`.
 

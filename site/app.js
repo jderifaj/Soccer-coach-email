@@ -295,6 +295,7 @@
       gmailAccount: '',
       listUpdatedAt: null,   // when the online coach list last changed
       coaches: [],           // copy of the online list (+ this browser's ticks)
+      top: [],               // ids of the Top 3 schools, in order
     };
   }
 
@@ -367,6 +368,7 @@
         opened: old ? old.opened : null,
       });
     });
+    state.top = Array.isArray(doc.top) ? doc.top : [];
     state.listUpdatedAt = doc.updatedAt;
     save();
     renderEverything();
@@ -434,6 +436,7 @@
     sync.status = status;
     sync.message = message || '';
     renderSync();
+    renderSchools(); // dragging is only on while the online list can be saved
   }
 
   function renderSync() {
@@ -459,8 +462,10 @@
 
   // "Replace the whole list" needs a second click, shown in a bar.
   let pendingReplace = null;
-  function offerReplace(coaches, message, buttonText) {
+  let pendingTop;
+  function offerReplace(coaches, message, buttonText, top) {
     pendingReplace = coaches;
+    pendingTop = top;
     $('#replace-msg').textContent = message;
     $('#replace-yes').textContent = buttonText || 'Replace the list';
     $('#replace-bar').hidden = false;
@@ -469,11 +474,11 @@
     const list = pendingReplace;
     $('#replace-bar').hidden = true;
     pendingReplace = null;
-    if (list) await change('PUT', '', { coaches: list }, 'Coach list saved (' + list.length + ' schools)');
+    if (list) await change('PUT', '', { coaches: list, top: pendingTop }, 'Coach list saved (' + list.length + ' schools)');
   }
 
   async function downloadCoachesJson() {
-    let doc = { version: 1, updatedAt: state.listUpdatedAt, coaches: state.coaches.map(serverFields) };
+    let doc = { version: 1, updatedAt: state.listUpdatedAt, coaches: state.coaches.map(serverFields), top: state.top };
     if (sync.status === 'ok') {
       try { doc = await api('GET'); } catch (e) { /* fall back to the saved copy */ }
     }
@@ -487,7 +492,8 @@
       const list = Array.isArray(data) ? data : data && data.coaches;
       if (!Array.isArray(list)) throw new Error('Expected a coaches.json file with a "coaches" list.');
       offerReplace(list, 'Replace the online list (' + state.coaches.length + ' schools) with this file (' +
-        list.length + ' schools)? Anything not in the file will be removed.', 'Replace the list');
+        list.length + ' schools)? Anything not in the file will be removed.', 'Replace the list',
+        data && Array.isArray(data.top) ? data.top : undefined);
     }).catch((e) => toast(e.message));
   }
 
@@ -653,8 +659,26 @@
     if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
     if (name === 'send') renderSend();
     renderSteps();
+    pulseActiveStep(name);
     if (name === 'write') renderPreview();
     window.scrollTo({ top: 0 });
+  }
+
+  // Pulse the red ring around the current step's circle (GSAP, if it loaded).
+  let stepPulse = null;
+  function pulseActiveStep(name) {
+    if (stepPulse) { stepPulse.kill(); stepPulse = null; }
+    if (!window.gsap) return;
+    document.querySelectorAll('.step').forEach((el) => gsap.set(el, { clearProps: 'boxShadow,scale' }));
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const circle = $('#tab-' + name + ' .step');
+    if (!circle) return;
+    const ring = '0 0 0 4px rgba(171, 0, 51, 0.85)';
+    stepPulse = gsap.timeline({ repeat: -1, repeatDelay: 0.3 })
+      .fromTo(circle,
+        { boxShadow: ring + ', 0 0 0 4px rgba(171, 0, 51, 0.6)' },
+        { boxShadow: ring + ', 0 0 0 14px rgba(171, 0, 51, 0)', duration: 1.4, ease: 'power2.out' })
+      .fromTo(circle, { scale: 1 }, { scale: 1.08, duration: 0.7, ease: 'sine.inOut', yoyo: true, repeat: 1 }, 0);
   }
 
   // ------------------------------------------------------------ write tab
@@ -857,22 +881,117 @@
 
   function lastContact(c) { return c.contacts.length ? c.contacts[c.contacts.length - 1] : null; }
 
+  // Athletics logos (from ESPN), saved in site/logos/<ESPN team id>.png.
+  // Keys are school names in lower case; add a line here for a new school.
+  const LOGOS = {
+    'appalachian state university': 2026, 'app state': 2026,
+    'clemson university': 228,
+    'coastal carolina university': 324,
+    'college of charleston': 232,
+    'davidson college': 2166,
+    'duke university': 150,
+    'east carolina university': 151,
+    'elon university': 2210,
+    'furman university': 231,
+    'james madison university': 256,
+    'north carolina state university': 152, 'nc state': 152,
+    'penn state university': 213, 'pennsylvania state university': 213,
+    'university of georgia': 61,
+    'university of north carolina': 153, 'unc': 153, 'university of north carolina at chapel hill': 153,
+    'university of north carolina at charlotte': 2429, 'unc charlotte': 2429, 'charlotte': 2429,
+    'university of north carolina at greensboro': 2430, 'unc greensboro': 2430, 'uncg': 2430,
+    'university of north carolina wilmington': 350, 'university of north carolina at wilmington': 350, 'unc wilmington': 350, 'uncw': 350,
+    'university of richmond': 257,
+    'university of south carolina': 2579,
+    'university of tennessee': 2633,
+    'university of virginia': 258,
+    'vanderbilt university': 238,
+    'virginia tech': 259,
+    'wake forest university': 154,
+    'west virginia university': 277,
+    'william & mary': 2729, 'william and mary': 2729, 'college of william & mary': 2729,
+    'wofford college': 2747,
+  };
+
+  function schoolLogo(name) {
+    const id = LOGOS[String(name || '').trim().toLowerCase().replace(/\s+/g, ' ')];
+    if (id) return el('img', { class: 'school-logo', src: 'logos/' + id + '.png', alt: '', loading: 'lazy', width: 48, height: 48 });
+    // No logo saved: show the school's initials instead.
+    const initials = String(name || '?').split(/\s+/).filter((w) => /^[A-Z]/.test(w)).map((w) => w[0]).join('').slice(0, 3) || '?';
+    return el('span', { class: 'school-logo school-logo-none', 'aria-hidden': 'true', text: initials });
+  }
+
+  const MAX_TOP = 3;
+  const topIds = () => state.top.filter((id) => state.coaches.some((c) => c.id === id)).slice(0, MAX_TOP);
+
   function renderSchools() {
     const q = $('#search').value.trim().toLowerCase();
     const list = $('#school-list');
-    const shown = state.coaches.filter((c) =>
-      !q || [c.school, c.coach, c.email].some((v) => v.toLowerCase().includes(q)));
+    const topList = $('#top-list');
+    const matches = (c) => !q || [c.school, c.coach, c.email].some((v) => v.toLowerCase().includes(q));
+    const top = topIds();
+    const byId = new Map(state.coaches.map((c) => [c.id, c]));
+    const topShown = top.map((id) => byId.get(id)).filter(matches);
+    const shown = state.coaches.filter((c) => !top.includes(c.id) && matches(c));
+
+    topList.replaceChildren(...topShown.map(schoolRow));
+    $('#top-section').hidden = Boolean(q) && !topShown.length;
+    topList.classList.toggle('is-full', top.length >= MAX_TOP);
 
     if (!state.coaches.length) {
       list.replaceChildren(el('li', { class: 'empty' },
         el('p', { text: 'No schools yet.' }),
         el('p', { class: 'muted', text: 'Add one with "Add school", or bring in a spreadsheet with "Import CSV".' })));
-    } else if (!shown.length) {
+    } else if (!shown.length && !topShown.length) {
       list.replaceChildren(el('li', { class: 'empty' }, el('p', { class: 'muted', text: 'No schools match "' + q + '".' })));
     } else {
       list.replaceChildren(...shown.map(schoolRow));
     }
+    setupDragging(!q && sync.status === 'ok' && state.coaches.length > 0);
+    $('#drag-hint').textContent = q ? 'Clear the search to drag schools around.'
+      : sync.status !== 'ok' ? '' : 'Drag schools to reorder them, or into the Top 3.';
     renderCounts();
+  }
+
+  // Dragging (SortableJS). Both lists share one group, so a school can move
+  // between the Top 3 and the rest. The Top 3 holds at most three: dropping a
+  // fourth pushes the last one back to the top of the main list.
+  let sortables = [];
+  function setupDragging(enabled) {
+    if (!window.Sortable) return;
+    if (!sortables.length) {
+      const opts = {
+        group: 'schools',
+        animation: 160,
+        draggable: '.school',
+        filter: 'input, button, .chip',
+        preventOnFilter: false,
+        delay: 150, delayOnTouchOnly: true,
+        ghostClass: 'is-ghost', chosenClass: 'is-chosen', dragClass: 'is-dragging',
+        onEnd: saveOrder,
+      };
+      sortables = [Sortable.create($('#top-list'), opts), Sortable.create($('#school-list'), opts)];
+    }
+    sortables.forEach((s) => s.option('disabled', !enabled));
+    $('#panel-schools').classList.toggle('can-drag', enabled);
+  }
+
+  async function saveOrder(evt) {
+    if (evt && evt.from === evt.to && evt.oldIndex === evt.newIndex) return;
+    const ids = (sel) => Array.from(document.querySelectorAll(sel + ' > .school')).map((li) => li.dataset.id);
+    let top = ids('#top-list');
+    let rest = ids('#school-list');
+    if (top.length > MAX_TOP) {
+      rest = top.slice(MAX_TOP).concat(rest);
+      top = top.slice(0, MAX_TOP);
+    }
+    // Update this browser at once, then save online (the server answers with the list).
+    const byId = new Map(state.coaches.map((c) => [c.id, c]));
+    state.top = top;
+    state.coaches = top.concat(rest).map((id) => byId.get(id)).filter(Boolean)
+      .concat(state.coaches.filter((c) => !top.includes(c.id) && !rest.includes(c.id)));
+    renderSchools();
+    await change('PUT', '', { order: state.coaches.map((c) => c.id), top }, null);
   }
 
   function schoolRow(c) {
@@ -884,11 +1003,15 @@
     const box = el('input', { type: 'checkbox', id: 'pick-' + c.id, checked: c.selected });
     box.addEventListener('change', () => { c.selected = box.checked; save(); row.classList.toggle('is-selected', c.selected); renderCounts(); });
 
-    const row = el('li', { class: 'school' + (c.selected ? ' is-selected' : '') },
+    const row = el('li', { class: 'school' + (c.selected ? ' is-selected' : ''), 'data-id': c.id },
+      el('span', { class: 'drag-grip', 'aria-hidden': 'true', title: 'Drag to move' }),
       box,
       el('label', { for: 'pick-' + c.id, class: 'school-main' },
-        el('span', { class: 'school-name', text: c.school || '(no school name)' }),
-        el('span', { class: 'school-coach', text: (c.coach || 'No coach name') + ' · ' + (c.email || 'no email') }),
+        el('span', { class: 'school-head' },
+          el('span', { class: 'school-id' },
+            el('span', { class: 'school-name', text: c.school || '(no school name)' }),
+            el('span', { class: 'school-coach', text: (c.coach || 'No coach name') + ' · ' + (c.email || 'no email') })),
+          schoolLogo(c.school)),
         normAssistants(c.assistants).length
           ? el('span', { class: 'school-asst', text: 'Assistants (CC): ' + normAssistants(c.assistants).map(describeAssistant).join(', ') })
           : null,

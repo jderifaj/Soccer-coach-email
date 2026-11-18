@@ -1,7 +1,8 @@
 // Coach list API, stored as one JSON document ("coaches.json") in Netlify Blobs.
 //
 //   GET    /api/coaches        -> the whole list
-//   PUT    /api/coaches        -> replace the whole list   body: { coaches: [...] }
+//   PUT    /api/coaches        -> replace the whole list   body: { coaches: [...], top?: [ids] }
+//                                  or reorder                body: { order: [ids], top: [ids] }
 //   POST   /api/coaches        -> add one school           body: { school, coach, ... }
 //   PUT    /api/coaches/:id    -> change one school        body: any coach fields
 //   DELETE /api/coaches/:id    -> delete one school
@@ -83,16 +84,46 @@ function cleanList(list) {
   });
 }
 
-const emptyDoc = () => ({ version: 1, updatedAt: null, coaches: [] });
-const sortCoaches = (list) => list.sort((a, b) => a.school.localeCompare(b.school));
+const emptyDoc = () => ({ version: 1, updatedAt: null, coaches: [], top: [] });
+const MAX_TOP = 3;
 
+// The list keeps whatever order it is dragged into. "top" holds up to three
+// school ids, in order, shown above the rest as the Top 3.
+const STARTING_TOP = [/north carolina state|\bnc state\b/i, /davidson/i, /\belon\b/i];
 
+/** Makes sure doc.top is a clean list of ids that exist (seeded the first time). */
+function tidyTop(d) {
+  if (!Array.isArray(d.top)) {
+    d.top = STARTING_TOP.map((re) => d.coaches.find((c) => re.test(c.school))).filter(Boolean).map((c) => c.id);
+  }
+  const ids = new Set(d.coaches.map((c) => c.id));
+  d.top = Array.from(new Set(d.top.filter((id) => typeof id === 'string' && ids.has(id)))).slice(0, MAX_TOP);
+  return d;
+}
+
+/** New schools go into their alphabetical spot. */
+function insertAlphabetically(list, coach) {
+  const i = list.findIndex((c) => c.school.localeCompare(coach.school, undefined, { sensitivity: 'base' }) > 0);
+  if (i < 0) list.push(coach); else list.splice(i, 0, coach);
+}
+
+/** Puts the list in the given id order (ids not mentioned keep their place at the end). */
+function reorder(d, order) {
+  if (!Array.isArray(order)) throw new HttpError(400, 'Expected { "order": [ ids ] }.');
+  const byId = new Map(d.coaches.map((c) => [c.id, c]));
+  const out = [];
+  for (const id of order) {
+    const c = byId.get(id);
+    if (c) { out.push(c); byId.delete(id); }
+  }
+  d.coaches = out.concat(Array.from(byId.values()));
+}
 
 const mutate = (store, change) => mutateDoc(store, KEY, {
   empty: emptyDoc,
   isValid: (d) => Array.isArray(d.coaches),
   change,
-  finish: (d) => sortCoaches(d.coaches),
+  finish: tidyTop,
 });
 
 export default withAuth(async (req, context) => {
@@ -101,19 +132,34 @@ export default withAuth(async (req, context) => {
 
     if (!id && req.method === 'GET') {
       const current = await store.get(KEY, { type: 'json' });
-      return reply(200, current && Array.isArray(current.coaches) ? current : emptyDoc());
+      return reply(200, tidyTop(current && Array.isArray(current.coaches) ? current : emptyDoc()));
     }
     if (!id && req.method === 'PUT') {
       const body = await readBody(req);
+      if ('order' in body) {
+        const { doc } = await mutate(store, (d) => {
+          tidyTop(d);
+          reorder(d, body.order);
+          if ('top' in body) {
+            if (!Array.isArray(body.top)) throw new HttpError(400, 'Expected "top" to be a list.');
+            d.top = body.top;
+          }
+        });
+        return reply(200, doc);
+      }
       const coaches = cleanList(body.coaches);
-      const { doc } = await mutate(store, (d) => { d.coaches = coaches; });
+      const { doc } = await mutate(store, (d) => {
+        tidyTop(d);
+        d.coaches = coaches;
+        if (Array.isArray(body.top)) d.top = body.top;
+      });
       return reply(200, doc);
     }
     if (!id && req.method === 'POST') {
       const coach = cleanCoach(await readBody(req));
       const { doc } = await mutate(store, (d) => {
         if (d.coaches.length >= MAX_COACHES) throw new HttpError(400, 'The list is full.');
-        d.coaches.push(coach);
+        insertAlphabetically(d.coaches, coach);
       });
       return reply(201, { ...doc, changed: coach.id });
     }
