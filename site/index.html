@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Coach Outreach</title>
+  <title>College Coach Outreach</title>
   <meta name="robots" content="noindex">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,11 +13,28 @@
 <body>
   <header class="top">
     <div class="wrap top-inner">
-      <h1 class="brand">Coach Outreach</h1>
-      <nav class="tabs" role="tablist" aria-label="Steps">
-        <button class="tab" id="tab-write" role="tab" aria-controls="panel-write"><span class="step">1</span> Write</button>
-        <button class="tab" id="tab-schools" role="tab" aria-controls="panel-schools"><span class="step">2</span> Schools</button>
-        <button class="tab" id="tab-send" role="tab" aria-controls="panel-send"><span class="step">3</span> Send <span class="badge" id="send-badge" hidden></span></button>
+      <h1 class="brand">College Coach Outreach</h1>
+      <nav class="steps" aria-label="Steps">
+        <ol class="stepper" role="tablist">
+          <li class="step-item">
+            <button class="tab" id="tab-write" role="tab" aria-controls="panel-write">
+              <span class="step" aria-hidden="true"><span class="step-num">1</span></span>
+              <span class="step-text"><span class="step-name">Write</span><span class="step-status" id="status-write"></span></span>
+            </button>
+          </li>
+          <li class="step-item">
+            <button class="tab" id="tab-schools" role="tab" aria-controls="panel-schools">
+              <span class="step" aria-hidden="true"><span class="step-num">2</span></span>
+              <span class="step-text"><span class="step-name">Schools</span><span class="step-status" id="status-schools"></span></span>
+            </button>
+          </li>
+          <li class="step-item">
+            <button class="tab" id="tab-send" role="tab" aria-controls="panel-send">
+              <span class="step" aria-hidden="true"><span class="step-num">3</span></span>
+              <span class="step-text"><span class="step-name">Send</span><span class="step-status" id="status-send"></span></span>
+            </button>
+          </li>
+        </ol>
       </nav>
     </div>
   </header>
@@ -104,7 +121,27 @@
     <section id="panel-schools" role="tabpanel" aria-labelledby="tab-schools" hidden>
       <div class="intro">
         <h2>Pick the schools</h2>
-        <p class="muted">Tick each school that should get this email. Click Edit to fix a name or add assistant coaches to CC.</p>
+        <p class="muted">Tick each school that should get this email. Click Edit to fix a name, add assistant coaches to CC, or delete a school. Changes are saved online, so the list is the same on every computer.</p>
+      </div>
+
+      <form id="unlock" class="unlock" hidden>
+        <div class="field">
+          <label for="unlock-password">Password for the coach list</label>
+          <div class="unlock-row">
+            <input id="unlock-password" type="password" autocomplete="current-password" required>
+            <button type="submit" class="btn btn-primary">Unlock</button>
+          </div>
+          <p class="hint">Only needed once on each computer. It's remembered in this browser.</p>
+          <p class="error" id="unlock-error" hidden></p>
+        </div>
+      </form>
+
+      <div id="replace-bar" class="note warn replace-bar" hidden>
+        <span id="replace-msg"></span>
+        <span class="replace-actions">
+          <button type="button" class="btn btn-small btn-primary" id="replace-yes">Replace the list</button>
+          <button type="button" class="btn btn-small btn-quiet" id="replace-no">Cancel</button>
+        </span>
       </div>
 
       <div class="toolbar">
@@ -112,16 +149,28 @@
         <div class="toolbar-actions">
           <button type="button" class="btn btn-quiet" id="select-all">Select all</button>
           <button type="button" class="btn btn-quiet" id="select-none">Clear</button>
-          <button type="button" class="btn" id="add-school">Add school</button>
+          <button type="button" class="btn" id="add-school" data-needs-online>Add school</button>
           <label class="btn btn-quiet file-btn">Import CSV<input id="import-csv" type="file" accept=".csv,text/csv"></label>
         </div>
       </div>
 
       <ul id="school-list" class="school-list"></ul>
 
+      <div class="list-file">
+        <span id="sync-note" class="muted"></span>
+        <span class="list-file-actions">
+          <button type="button" class="link-btn" id="json-download">Download coaches.json</button>
+          <label class="link-btn file-btn">Upload coaches.json<input id="json-upload" type="file" accept=".json,application/json"></label>
+          <button type="button" class="link-btn" id="lock" hidden>Lock</button>
+        </span>
+      </div>
+
       <div class="next-row sticky-next">
-        <span id="selected-count" class="muted">None selected</span>
-        <button type="button" class="btn btn-primary" id="to-send">Next: review &amp; send →</button>
+        <button type="button" class="btn btn-quiet" data-go="write">← Back to your email</button>
+        <span class="next-right">
+          <span id="selected-count" class="muted">None selected</span>
+          <button type="button" class="btn btn-primary" id="to-send">Next: review &amp; send →</button>
+        </span>
       </div>
     </section>
 
@@ -137,6 +186,9 @@
       </div>
       <div id="send-notes"></div>
       <div id="send-list" class="send-list"></div>
+      <div class="next-row">
+        <button type="button" class="btn btn-quiet" data-go="schools">← Back to schools</button>
+      </div>
     </section>
   </main>
 
@@ -154,25 +206,27 @@
       <div class="field"><label for="f-school">School</label><input id="f-school" type="text" placeholder="University of North Carolina"></div>
       <div class="field"><label for="f-coach">Head coach (full name)</label><input id="f-coach" type="text" placeholder="Jane Smith"></div>
       <div class="field"><label for="f-email">Head coach email</label><input id="f-email" type="email" placeholder="jsmith@school.edu"></div>
-      <div class="field">
-        <label for="f-assistants">Assistant coach emails (optional)</label>
-        <textarea id="f-assistants" rows="2" placeholder="Separate with commas"></textarea>
-        <p class="hint">These are CC'd on the email to this school.</p>
-      </div>
+      <fieldset class="asst">
+        <legend>Assistant coaches</legend>
+        <p class="hint">Everyone listed here is CC'd on the email to this school.</p>
+        <div id="asst-list" class="asst-list"></div>
+        <p class="hint" id="asst-empty">No assistant coaches yet.</p>
+        <button type="button" class="btn btn-small" id="asst-add">+ Add assistant coach</button>
+      </fieldset>
+      <div class="field"><label for="f-questionnaire">Notes (optional)</label><input id="f-questionnaire" type="text" placeholder="e.g. Questionnaire done, Asst. HC"></div>
       <p class="hint" id="f-contacts"></p>
       <p class="error" id="edit-error" hidden></p>
       <div class="dialog-actions">
         <button type="button" class="btn btn-danger" id="f-delete">Delete school</button>
         <span class="spacer"></span>
         <button type="button" class="btn btn-quiet" id="f-cancel">Cancel</button>
-        <button type="submit" class="btn btn-primary">Save</button>
+        <button type="submit" class="btn btn-primary" id="f-save">Save</button>
       </div>
     </form>
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
-  <script src="coaches.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

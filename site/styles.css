@@ -1,20 +1,26 @@
-/* Layout: a pitch-green header bar with step tabs; content in one centered
-   column; the Write step splits into editor + live preview on wide screens. */
+/* Layout: a Courage-navy header holding the title and a connected
+   1 -> 2 -> 3 step bar (gold checks for finished steps); content in one
+   centered column; the Write step splits into editor + live preview. */
 :root {
-  --bg: #f4f7f3;
+  /* North Carolina Courage colors (from nccourage.com's theme) */
+  --courage-navy: #00416B;
+  --courage-red: #AB0033;
+  --courage-gold: #B4A269;
+
+  --bg: #f3f6f9;
   --surface: #ffffff;
-  --ink: #15231b;
-  --muted: #5b6b61;
-  --line: #d8e1da;
-  --pitch: #17603f;
+  --ink: #13202c;
+  --muted: #586776;
+  --line: #d5dde6;
+  --pitch: #00416B;        /* accent: buttons, links, selected rows */
   --pitch-ink: #ffffff;
-  --pitch-soft: #e3efe7;
-  --mark: #fff1b8;
-  --warn-bg: #fff4e0;
-  --warn-ink: #7a4a00;
-  --danger: #b3261e;
-  --focus: #2f8f63;
-  --shadow: 0 1px 2px rgb(21 35 27 / 0.06), 0 4px 16px rgb(21 35 27 / 0.06);
+  --pitch-soft: #e4edf5;
+  --mark: #f3ead0;
+  --warn-bg: #fdf1e3;
+  --warn-ink: #7a4300;
+  --danger: #AB0033;
+  --focus: #2c6fa4;
+  --shadow: 0 1px 2px rgb(0 40 70 / 0.06), 0 4px 16px rgb(0 40 70 / 0.07);
   --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
   --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --radius: 10px;
@@ -22,19 +28,19 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1713;
-    --surface: #17221c;
-    --ink: #e6efe9;
-    --muted: #9db0a4;
-    --line: #2a3a31;
-    --pitch: #2f8f63;
-    --pitch-ink: #ffffff;
-    --pitch-soft: #1d3328;
-    --mark: #4a4216;
-    --warn-bg: #3a2c12;
-    --warn-ink: #f3cf8c;
-    --danger: #ff8a80;
-    --focus: #5cc595;
+    --bg: #0c1520;
+    --surface: #14202d;
+    --ink: #e5ecf3;
+    --muted: #9badbf;
+    --line: #253649;
+    --pitch: #7fb4df;
+    --pitch-ink: #06182a;
+    --pitch-soft: #172c42;
+    --mark: #4a4120;
+    --warn-bg: #3a2a14;
+    --warn-ink: #f1cf96;
+    --danger: #ff7d97;
+    --focus: #8cc2ec;
     --shadow: none;
     color-scheme: dark;
   }
@@ -64,24 +70,39 @@ p { margin: 0; }
 .offscreen { position: fixed; left: -9999px; top: 0; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
-/* Header + tabs */
-.top { background: var(--pitch); color: var(--pitch-ink); position: sticky; top: 0; z-index: 5; }
-.top-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; padding-block: 10px; }
-.brand { font-size: 26px; text-transform: uppercase; letter-spacing: 0.06em; }
-.tabs { display: flex; gap: 4px; }
+/* Header + connected steps (always Courage navy, in both themes) */
+.top { background: var(--courage-navy); color: #fff; position: sticky; top: 0; z-index: 5; border-bottom: 3px solid var(--courage-red); }
+.top-inner { display: flex; align-items: center; justify-content: space-between; gap: 10px 28px; flex-wrap: wrap; padding-block: 10px; }
+.brand { font-size: 25px; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.05; }
+.steps { flex: 1 1 420px; max-width: 560px; }
+.stepper { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.step-item { position: relative; display: flex; justify-content: center; }
+/* the line joining each step to the next; gold once the step before is done */
+.step-item + .step-item::before {
+  content: ""; position: absolute; top: 21px; right: calc(50% + 20px); width: calc(100% - 40px);
+  height: 2px; background: rgb(255 255 255 / 0.28);
+}
+.step-item:has(.is-done) + .step-item::before { background: var(--courage-gold); }
 .tab {
-  font: 600 15px/1 var(--font-body); color: inherit; background: transparent;
-  border: 0; border-radius: 999px; padding: 9px 14px; cursor: pointer; opacity: 0.8;
-  display: inline-flex; align-items: center; gap: 8px;
+  font: inherit; color: #fff; background: transparent; border: 0; cursor: pointer;
+  display: grid; justify-items: center; gap: 4px; padding: 4px 6px; border-radius: 10px; min-width: 0; text-align: center;
 }
-.tab:hover { opacity: 1; background: rgb(255 255 255 / 0.1); }
-.tab[aria-selected="true"] { opacity: 1; background: rgb(255 255 255 / 0.18); }
+.tab:hover .step { background: rgb(255 255 255 / 0.14); }
 .step {
-  display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
-  border: 1.5px solid currentColor; font-size: 12px;
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+  border: 2px solid rgb(255 255 255 / 0.55); font: 700 15px/1 var(--font-body); position: relative; z-index: 1;
+  background: var(--courage-navy);
 }
-.tab[aria-selected="true"] .step { background: var(--pitch-ink); color: var(--pitch); border-color: var(--pitch-ink); }
-.badge { background: var(--pitch-ink); color: var(--pitch); border-radius: 999px; font-size: 12px; padding: 2px 7px; }
+.tab.is-done .step { border-color: var(--courage-gold); background: var(--courage-gold); color: var(--courage-navy); }
+.tab.is-done .step-num { font-size: 0; }
+.tab.is-done .step-num::before { content: "✓"; font-size: 17px; }
+.tab[aria-selected="true"] .step { background: #fff; color: var(--courage-navy); border-color: #fff; box-shadow: 0 0 0 4px rgb(171 0 51 / 0.85); }
+.tab[aria-selected="true"].is-done .step { background: var(--courage-gold); border-color: var(--courage-gold); }
+.step-text { display: grid; gap: 1px; min-width: 0; }
+.step-name { font: 700 15px/1.1 var(--font-body); letter-spacing: 0.01em; }
+.step-status { font-size: 12px; line-height: 1.2; color: rgb(255 255 255 / 0.72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab[aria-selected="true"] .step-status { color: var(--courage-gold); }
+.tab.is-done .step-status { color: #e9dfbd; }
 
 main { padding-block: 24px 40px; }
 section { display: grid; gap: 20px; }
@@ -132,7 +153,7 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--focus); out
 
 .write-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 .compose { display: grid; gap: 18px; min-width: 0; }
-.preview-pane { position: sticky; top: 76px; display: grid; gap: 10px; min-width: 0; }
+.preview-pane { position: sticky; top: 120px; display: grid; gap: 10px; min-width: 0; }
 .pane-title { font-size: 18px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 .inline-select select { width: auto; max-width: 100%; padding: 6px 10px; font-size: 14px; }
 .preview { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; display: grid; gap: 14px; max-height: calc(100vh - 150px); overflow: auto; }
@@ -163,6 +184,7 @@ mark.missing { background: transparent; color: var(--danger); outline: 1px dashe
 .link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--pitch); text-decoration: underline; cursor: pointer; }
 
 .next-row { display: flex; justify-content: flex-end; align-items: center; gap: 12px; flex-wrap: wrap; }
+.next-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .sticky-next {
   position: sticky; bottom: 0; background: var(--bg); padding-block: 12px;
   padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
@@ -189,6 +211,17 @@ mark.missing { background: transparent; color: var(--danger); outline: 1px dashe
 .chip-new { color: var(--pitch); border-color: var(--pitch); }
 .empty { padding: 28px 16px; text-align: center; display: grid; gap: 8px; justify-items: center; }
 
+/* Online list */
+.unlock { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; max-width: 520px; }
+.unlock-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.unlock-row input { flex: 1 1 200px; width: auto; }
+.replace-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.replace-actions { display: flex; gap: 6px; }
+.list-file { display: flex; justify-content: space-between; align-items: center; gap: 8px 16px; flex-wrap: wrap; font-size: 13px; }
+.list-file .warn { color: var(--danger); font-weight: 600; }
+.list-file-actions { display: flex; gap: 16px; flex-wrap: wrap; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
 /* Send */
 .send-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .send-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 16px; align-items: start; }
@@ -205,6 +238,16 @@ mark.missing { background: transparent; color: var(--danger); outline: 1px dashe
 .note { padding: 10px 12px; border-radius: 8px; font-size: 14px; }
 .note.warn { background: var(--warn-bg); color: var(--warn-ink); }
 .note a { color: inherit; font-weight: 600; }
+
+/* Assistant coaches in the school editor */
+.asst { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px 12px; margin: 0; display: grid; gap: 8px; }
+.asst legend { padding: 0 4px; }
+.asst-list { display: grid; gap: 6px; }
+.asst-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) auto; gap: 6px; align-items: center; }
+.asst-row input { padding: 8px 10px; }
+.asst-remove { padding: 6px 9px; }
+#asst-add { justify-self: start; }
+@media (max-width: 480px) { .asst-row { grid-template-columns: minmax(0, 1fr) auto; } .asst-row .asst-email { grid-column: 1; } .asst-remove { grid-row: 1 / span 2; grid-column: 2; } }
 
 /* Dialog */
 dialog { border: 0; border-radius: 14px; padding: 0; width: min(520px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); box-shadow: 0 20px 60px rgb(0 0 0 / 0.3); }
@@ -230,8 +273,9 @@ dialog::backdrop { background: rgb(10 20 15 / 0.45); }
   .editor { min-height: 280px; }
 }
 @media (max-width: 560px) {
-  .brand { font-size: 22px; }
-  .tab { padding: 8px 10px; font-size: 14px; }
+  .brand { font-size: 21px; }
+  .steps { flex-basis: 100%; max-width: none; }
+  .step-status { font-size: 11px; }
   .school { grid-template-columns: auto minmax(0, 1fr) auto; }
   .school-meta { grid-column: 2; }
   .school .btn { grid-column: 3; grid-row: 1; }
