@@ -234,7 +234,7 @@ mark.missing { background: transparent; color: var(--danger); outline: 1px dashe
 .school-name { font-weight: 600; font-size: 15px; }
 /* Name + coach on the left, the athletics logo to the right, centered on those two lines */
 .school-head { display: flex; align-items: center; gap: 16px; min-width: 0; }
-.school-id { display: grid; gap: 1px; min-width: 0; flex: 1 1 auto; }
+.school-id { display: grid; gap: 1px; min-width: 0; flex: 0 1 auto; }
 .school-logo { flex: none; width: 44px; height: 44px; object-fit: contain; }
 .school-logo-none {
   display: grid; place-items: center; border-radius: 50%; background: var(--pitch-soft); color: var(--pitch);
