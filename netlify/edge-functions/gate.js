@@ -62,6 +62,9 @@ const PRIVATE_HEADERS = {
   'x-content-type-options': 'nosniff',
 };
 
+const PUBLIC_FILES = new Set(['/favicon.svg', '/apple-touch-icon.png']);
+const ICON_LINKS = '<link rel="icon" href="/favicon.svg" type="image/svg+xml">\n<link rel="apple-touch-icon" href="/apple-touch-icon.png">';
+
 function signInPage(next, error, status = 401) {
   const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const html = `<!doctype html>
@@ -69,6 +72,7 @@ function signInPage(next, error, status = 401) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Sign in · College Coach Outreach</title>
+${ICON_LINKS}
 <style>
   :root { --navy:#00416B; --red:#AB0033; --gold:#B4A269; --bg:#f3f6f9; --ink:#13202c; --muted:#586776; --line:#d5dde6; --card:#fff; }
   @media (prefers-color-scheme: dark) { :root { --bg:#0c1520; --ink:#e5ecf3; --muted:#9badbf; --line:#253649; --card:#14202d; } }
@@ -112,6 +116,9 @@ export default async (request, context) => {
     return new Response('This site is not set up yet (APP_PASSWORD is missing).', { status: 500, headers: PRIVATE_HEADERS });
   }
   const url = new URL(request.url);
+
+  // The site icon is public so the browser tab shows it on the sign-in page too.
+  if (PUBLIC_FILES.has(url.pathname)) return context.next();
 
   if (url.pathname === '/logout') {
     return new Response(null, {
