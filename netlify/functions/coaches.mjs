@@ -51,13 +51,14 @@ export function cleanAssistants(value, school) {
 /** Checks and tidies one school. `existing` is the stored version when editing. */
 export function cleanCoach(input, existing) {
   if (!input || typeof input !== 'object') throw new HttpError(400, 'Expected a school.');
-  const base = existing || { id: randomUUID(), school: '', coach: '', email: '', assistants: [], contacts: [] };
+  const base = existing || { id: randomUUID(), school: '', coach: '', email: '', assistants: [], roster: '', contacts: [] };
   const pick = (k, max) => (k in input ? str(input[k], max) : base[k]);
   const out = {
     id: base.id,
     school: pick('school', 200),
     coach: pick('coach', 200),
     email: pick('email', 254),
+    roster: pick('roster', 500) || '',
     assistants: base.assistants,
     contacts: base.contacts,
   };
@@ -66,6 +67,7 @@ export function cleanCoach(input, existing) {
     out.contacts = Array.from(new Set(input.contacts.map(String).filter((d) => DATE_RE.test(d)))).sort().slice(-500);
   }
   if (!out.school) throw new HttpError(400, 'Every school needs a name.');
+  if (out.roster && !/^https?:\/\/\S+$/i.test(out.roster)) throw new HttpError(400, `The roster link for ${out.school} should start with https://.`);
   if (out.email && !EMAIL_RE.test(out.email)) throw new HttpError(400, `The email for ${out.school} doesn't look right.`);
   out.assistants = cleanAssistants('assistants' in input ? input.assistants : base.assistants, out.school);
   return out;

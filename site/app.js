@@ -324,7 +324,7 @@
 
   // --- The online coach list (coaches.json on Netlify) ----------------------
 
-  const SERVER_FIELDS = ['id', 'school', 'coach', 'email', 'assistants', 'contacts'];
+  const SERVER_FIELDS = ['id', 'school', 'coach', 'email', 'assistants', 'roster', 'contacts'];
   const serverFields = (c) => Object.fromEntries(SERVER_FIELDS.map((k) => [k, c[k]]));
 
   // loading · ok · offline: showing the copy saved in this browser
@@ -911,8 +911,52 @@
     'wofford college': 2747,
   };
 
+  // Women's soccer roster pages. A school's own "Roster page" (Edit) wins over this.
+  const ROSTERS = {
+    'appalachian state university': 'https://appstatesports.com/sports/womens-soccer/roster',
+    'clemson university': 'https://clemsontigers.com/sports/womens-soccer/roster',
+    'coastal carolina university': 'https://goccusports.com/sports/womens-soccer/roster',
+    'college of charleston': 'https://cofcsports.com/sports/womens-soccer/roster',
+    'davidson college': 'https://davidsonwildcats.com/sports/womens-soccer/roster',
+    'duke university': 'https://goduke.com/sports/womens-soccer/roster',
+    'east carolina university': 'https://ecupirates.com/sports/womens-soccer/roster',
+    'elon university': 'https://elonphoenix.com/sports/womens-soccer/roster',
+    'furman university': 'https://furmanpaladins.com/sports/womens-soccer/roster',
+    'james madison university': 'https://jmusports.com/sports/womens-soccer/roster',
+    'north carolina state university': 'https://gopack.com/sports/womens-soccer/roster',
+    'penn state university': 'https://gopsusports.com/sports/womens-soccer/roster',
+    'university of georgia': 'https://georgiadogs.com/sports/womens-soccer/roster',
+    'university of north carolina': 'https://goheels.com/sports/womens-soccer/roster',
+    'university of north carolina at charlotte': 'https://charlotte49ers.com/sports/womens-soccer/roster',
+    'university of north carolina at greensboro': 'https://uncgspartans.com/sports/womens-soccer/roster',
+    'university of north carolina wilmington': 'https://uncwsports.com/sports/womens-soccer/roster',
+    'university of richmond': 'https://richmondspiders.com/sports/womens-soccer/roster',
+    'university of south carolina': 'https://gamecocksonline.com/sports/wsoc/roster/',
+    'university of tennessee': 'https://utsports.com/sports/womens-soccer/roster',
+    'university of virginia': 'https://virginiasports.com/sports/wsoc/roster/',
+    'vanderbilt university': 'https://vucommodores.com/sports/wsoc/roster/',
+    'virginia tech': 'https://hokiesports.com/sports/womens-soccer/roster',
+    'wake forest university': 'https://godeacs.com/sports/womens-soccer/roster',
+    'west virginia university': 'https://wvusports.com/sports/womens-soccer/roster',
+    'william & mary': 'https://tribeathletics.com/sports/womens-soccer/roster',
+    'wofford college': 'https://woffordterriers.com/sports/womens-soccer/roster',
+  };
+
+  const schoolKey = (name) => String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const rosterUrl = (c) => (/^https?:\/\//i.test(c.roster || '') ? c.roster : ROSTERS[schoolKey(c.school)] || '');
+
+  function rosterLink(c) {
+    const url = rosterUrl(c);
+    if (!url) return null;
+    return el('a', {
+      class: 'roster-link', href: url, target: '_blank', rel: 'noopener noreferrer',
+      title: 'Open the ' + c.school + ' roster', 'aria-label': 'Roster for ' + c.school + ' (opens in a new tab)',
+      html: '<svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path d="M5 3h8v8M13 3 3 13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    });
+  }
+
   function schoolLogo(name) {
-    const id = LOGOS[String(name || '').trim().toLowerCase().replace(/\s+/g, ' ')];
+    const id = LOGOS[schoolKey(name)];
     if (id) return el('img', { class: 'school-logo', src: 'logos/' + id + '.png', alt: '', loading: 'lazy', width: 48, height: 48 });
     // No logo saved: show the school's initials instead.
     const initials = String(name || '?').split(/\s+/).filter((w) => /^[A-Z]/.test(w)).map((w) => w[0]).join('').slice(0, 3) || '?';
@@ -962,7 +1006,7 @@
         group: 'schools',
         animation: 160,
         draggable: '.school',
-        filter: 'input, button, .chip',
+        filter: 'input, button, a, .chip',
         preventOnFilter: false,
         delay: 150, delayOnTouchOnly: true,
         ghostClass: 'is-ghost', chosenClass: 'is-chosen', dragClass: 'is-dragging',
@@ -1006,9 +1050,11 @@
       box,
       el('label', { for: 'pick-' + c.id, class: 'school-main' },
         el('span', { class: 'school-head' },
-          el('span', { class: 'school-id' },
-            el('span', { class: 'school-name', text: c.school || '(no school name)' }),
-            el('span', { class: 'school-coach', text: (c.coach || 'No coach name') + ' · ' + (c.email || 'no email') })),
+          el('span', { class: 'school-text' },
+            el('span', { class: 'school-id' },
+              el('span', { class: 'school-name', text: c.school || '(no school name)' }),
+              el('span', { class: 'school-coach', text: (c.coach || 'No coach name') + ' · ' + (c.email || 'no email') })),
+            rosterLink(c)),
           schoolLogo(c.school)),
         normAssistants(c.assistants).length
           ? el('span', { class: 'school-asst', text: 'Assistants (CC): ' + normAssistants(c.assistants).map(describeAssistant).join(', ') })
@@ -1047,6 +1093,7 @@
     $('#f-school').value = c ? c.school : '';
     $('#f-coach').value = c ? c.coach : '';
     $('#f-email').value = c ? c.email : '';
+    $('#f-roster').value = c ? c.roster || '' : '';
     renderAssistantRows(c ? normAssistants(c.assistants) : []);
     $('#f-contacts').textContent = c && c.contacts.length
       ? 'Contacted: ' + c.contacts.map(prettyDate).join(', ') : 'No contact dates yet.';
@@ -1063,9 +1110,11 @@
     const vals = {
       school: $('#f-school').value.trim(), coach: $('#f-coach').value.trim(),
       email: $('#f-email').value.trim(), assistants: readAssistantRows(),
+      roster: $('#f-roster').value.trim(),
     };
     const err = !vals.school ? 'Enter the school name.'
       : !EMAIL_RE.test(vals.email) ? 'Enter the head coach\'s email address.'
+      : vals.roster && !/^https?:\/\/\S+$/i.test(vals.roster) ? 'The roster page should be a web link starting with https://.'
       : vals.assistants.find((a) => !EMAIL_RE.test(a.email))
         ? 'Check the email for assistant coach ' + (vals.assistants.find((a) => !EMAIL_RE.test(a.email)).name || '#' + (vals.assistants.findIndex((a) => !EMAIL_RE.test(a.email)) + 1)) + '.'
       : null;
