@@ -1260,6 +1260,8 @@
         externalLinks(el('div', { class: 'letter', html: fillMessage(sanitizeHtml(state.bodyHtml), c, true).html }))),
       problems.length ? el('ul', { class: 'problems' }, problems.map((p) => el('li', { text: p }))) : null,
       el('div', { class: 'card-actions' },
+        el('button', { type: 'button', class: 'btn', text: 'Copy message',
+          onclick: () => copyThen((ok) => toast(ok ? 'Message copied with its links' : 'Couldn\'t copy. Open "Read the message", select it and copy.')) }),
         emailOk && !missing.length
           ? el('a', { class: 'btn btn-primary', href: url, target: '_blank', rel: 'noopener',
               onclick: () => {
@@ -1272,9 +1274,7 @@
                 });
               },
               text: 'Open in Gmail' })
-          : el('span', { class: 'btn btn-primary is-disabled', 'aria-disabled': 'true', text: 'Open in Gmail' }),
-        el('button', { type: 'button', class: 'btn', text: 'Copy message',
-          onclick: () => copyThen((ok) => toast(ok ? 'Message copied with its links' : 'Couldn\'t copy. Open "Read the message", select it and copy.')) })),
+          : el('span', { class: 'btn btn-primary is-disabled', 'aria-disabled': 'true', text: 'Open in Gmail' })),
       el('p', { class: 'hint', text: 'Gmail opens with To, CC and Subject filled in, and the message is copied for you. Click in the message area and press ' + PASTE_KEYS + '.' }),
       status
     );
