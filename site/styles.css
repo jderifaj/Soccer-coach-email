@@ -139,8 +139,17 @@ textarea { resize: vertical; line-height: 1.6; }
 .link-for span { color: var(--ink); font-weight: 600; }
 .link-row { display: flex; gap: 6px; flex-wrap: wrap; }
 .link-row input { flex: 1 1 220px; width: auto; padding: 7px 10px; }
+.link-check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.link-check input { width: auto; margin: 0; }
 .editor { min-height: 360px; padding: 12px 14px; line-height: 1.6; outline: none; overflow-wrap: anywhere; }
 .editor a, .letter a { color: var(--pitch); text-decoration: underline; }
+/* Links sent as buttons: the editor shows them as buttons; previews get the
+   real email tables from emailButtons(), whose inline styles do the rest. */
+.editor a[data-button] { display: inline-block; margin: 2px 0; padding: 4px 12px; border-radius: 6px; background: #00416B; color: #fff; font-weight: 700; text-decoration: none; }
+.letter table.email-buttons { display: table; overflow: visible; }
+.letter table.email-buttons td { padding: 0; white-space: normal; }
+.letter table.email-buttons a { color: #fff; text-decoration: none; }
+.letter table.email-buttons mark { background: transparent; color: inherit; }
 .editor table, .letter table { border-collapse: collapse; margin: 6px 0; display: block; overflow-x: auto; max-width: 100%; }
 .editor td, .editor th, .letter td, .letter th { padding: 2px 12px 2px 0; text-align: left; vertical-align: top; white-space: nowrap; overflow-wrap: normal; }
 .editor p, .letter p { margin: 0 0 1em; }

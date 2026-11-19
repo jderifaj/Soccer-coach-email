@@ -104,11 +104,38 @@
       .replace(/\n/g, '<br>');
   }
 
-  /** Adds light inline spacing to tables so they look right once pasted into Gmail. */
+  /** Adds light inline spacing to tables so they look right once pasted into Gmail,
+   *  and turns links marked as buttons into email-safe buttons. */
   function emailReadyHtml(html) {
-    return String(html || '')
+    return emailButtons(String(html || '')
       .replace(/<table\b[^>]*>/gi, '<table style="border-collapse:collapse">')
-      .replace(/<(td|th)\b([^>]*)>/gi, '<$1$2 style="padding:2px 12px 2px 0;text-align:left;vertical-align:top">');
+      .replace(/<(td|th)\b([^>]*)>/gi, '<$1$2 style="padding:2px 12px 2px 0;text-align:left;vertical-align:top">'));
+  }
+
+  // Links marked as buttons (<a data-button>) are sent as "bulletproof" buttons:
+  // the color sits on a table cell (bgcolor + background-color), so the button
+  // shows in Gmail, Apple Mail, Yahoo and Outlook (desktop Outlook just squares
+  // the corners). Buttons on neighboring lines sit side by side in one row.
+  const BUTTON_COLOR = '#00416B'; // Courage navy
+  const BUTTON_A = '<a\\b[^>]*\\bdata-button\\b[^>]*>[\\s\\S]*?<\\/a>';
+  const BUTTON_RUN_RE = new RegExp('(?:' + BUTTON_A + ')(?:(?:\\s|&nbsp;|<br\\s*\\/?>)*' + BUTTON_A + ')*(?:\\s*<br\\s*\\/?>)?', 'gi');
+
+  function emailButtons(html) {
+    return String(html || '').replace(BUTTON_RUN_RE, (run) => {
+      const cells = (run.match(new RegExp(BUTTON_A, 'gi')) || []).map((a) => {
+        const m = a.match(/href="([^"]*)"[^>]*>([\s\S]*?)<\/a>$/i);
+        if (!m) return '';
+        return '<td style="padding:0 10px 10px 0">' +
+          '<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate"><tr>' +
+          '<td bgcolor="' + BUTTON_COLOR + '" style="background-color:' + BUTTON_COLOR + ';border-radius:6px">' +
+          '<a href="' + m[1] + '" target="_blank" style="display:inline-block;padding:11px 20px;' +
+          'border:1px solid ' + BUTTON_COLOR + ';border-radius:6px;background-color:' + BUTTON_COLOR + ';' +
+          'font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;line-height:18px;' +
+          'color:#ffffff;text-decoration:none">' + m[2] + '</a></td></tr></table></td>';
+      }).join('');
+      return '<table class="email-buttons" role="presentation" cellspacing="0" cellpadding="0" border="0" ' +
+        'style="border-collapse:collapse;margin:10px 0 4px"><tr>' + cells + '</tr></table>';
+    });
   }
 
   /** Accepts "hudl.com/x" or "https://hudl.com/x"; returns a full address or null. */
@@ -262,7 +289,7 @@
 
   // Exposed for tests in Node; the page itself does not use this.
   if (typeof module !== 'undefined') {
-    module.exports = { normAssistants, splitName, fill, fillHtml, fillMessage, htmlToText, textToHtml, emailReadyHtml,
+    module.exports = { normAssistants, splitName, fill, fillHtml, fillMessage, htmlToText, textToHtml, emailReadyHtml, emailButtons,
       normalizeUrl, ccList, gmailUrl, parseContactDate, coachesFromCsv, parseCsv };
     return;
   }
@@ -532,8 +559,10 @@
           replacement = document.createElement(tag === 'STRONG' ? 'b' : tag === 'EM' ? 'i' : tag.toLowerCase());
           if (tag === 'A') {
             const href = normalizeUrl(child.getAttribute('href'));
-            if (href) replacement.setAttribute('href', href);
-            else replacement = null; // a link without a usable address: keep just its words
+            if (href) {
+              replacement.setAttribute('href', href);
+              if (child.hasAttribute('data-button')) replacement.setAttribute('data-button', '');
+            } else replacement = null; // a link without a usable address: keep just its words
           }
           if ((tag === 'TD' || tag === 'TH') && replacement) {
             ['colspan', 'rowspan'].forEach((a) => { if (child.getAttribute(a)) replacement.setAttribute(a, child.getAttribute(a)); });
@@ -805,6 +834,7 @@
     }
     $('#link-url').value = existing ? existing.getAttribute('href') : '';
     $('#link-words').textContent = existing ? existing.textContent : savedRange.toString();
+    $('#link-button').checked = existing ? existing.hasAttribute('data-button') : false;
     $('#link-remove').hidden = !existing;
     $('#link-error').hidden = true;
     $('#link-box').hidden = false;
@@ -825,14 +855,20 @@
     }
     const existing = linkAtSelection();
     $('#link-box').hidden = true;
+    let link = existing;
     if (existing) {
       existing.setAttribute('href', url);
     } else {
       restoreSelection();
       document.execCommand('createLink', false, url);
+      const sel = window.getSelection();
+      const range = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
+      link = range ? Array.from($('#body').querySelectorAll('a')).find((a) => range.intersectsNode(a)) : null;
     }
+    const asButton = $('#link-button').checked;
+    if (link) link.toggleAttribute('data-button', asButton);
     saveBody();
-    toast('Link added');
+    toast(asButton ? 'Button added' : 'Link added');
   }
 
   function removeLink() {
@@ -871,7 +907,7 @@
         el('dt', { text: 'To' }), el('dd', { text: coach.email || '—' }),
         el('dt', { text: 'CC' }), el('dd', { text: ccLabel(coach, cc) }),
         el('dt', { text: 'Subject' }), el('dd', { html: fillHtml(state.subject, coach) })),
-      externalLinks(el('div', { class: 'letter', html: fillMessage(sanitizeHtml(state.bodyHtml), coach, true).html }))
+      externalLinks(el('div', { class: 'letter', html: emailButtons(fillMessage(sanitizeHtml(state.bodyHtml), coach, true).html) }))
     );
   }
 
@@ -1257,7 +1293,7 @@
         el('dt', { text: 'Subject' }), el('dd', { html: fillHtml(state.subject, c) })),
       el('details', { class: 'letter-wrap' },
         el('summary', { text: 'Read the message' }),
-        externalLinks(el('div', { class: 'letter', html: fillMessage(sanitizeHtml(state.bodyHtml), c, true).html }))),
+        externalLinks(el('div', { class: 'letter', html: emailButtons(fillMessage(sanitizeHtml(state.bodyHtml), c, true).html) }))),
       problems.length ? el('ul', { class: 'problems' }, problems.map((p) => el('li', { text: p }))) : null,
       el('div', { class: 'card-actions' },
         el('button', { type: 'button', class: 'btn', text: 'Copy message',
